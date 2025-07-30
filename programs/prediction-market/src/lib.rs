@@ -1,6 +1,9 @@
 #![allow(unexpected_cfgs)]
 use anchor_lang::prelude::*;
 
+mod err;
+//mod events;
+
 declare_id!("CgZEcSRPh1Ay1EYR4VJPTJRYcRkTDjjZhBAjZ5M8keGp");
 
 pub const CONFIG: &[u8; 27] = b"future_option_market_config";
@@ -25,6 +28,7 @@ struct OptionContract {
 #[program]
 pub mod future_option_market {
   use super::*;
+  use ErrorCode::*;
 
   pub fn initialize(ctx: Context<InitConfig>) -> Result<()> {
     msg!("initialize with prog_id: {:?}", ctx.program_id);

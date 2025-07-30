@@ -1,10 +1,30 @@
 {
   "compilerOptions": {
-    "types": ["mocha", "chai"],
-    "typeRoots": ["./node_modules/@types"],
-    "lib": ["es2015"],
-    "module": "commonjs",
-    "target": "es6",
-    "esModuleInterop": true
+    "types": [
+      "mocha",
+      "chai"
+    ],
+    "typeRoots": [
+      "./node_modules/@types"
+    ],
+    "lib": [
+      "ESNext"
+    ],
+    "module": "Preserve",
+    "target": "ESNext",
+    "moduleDetection": "force",
+    "allowJs": true,
+    "moduleResolution": "node", //bundler
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    // Best practices
+    "strict": true,
+    "skipLibCheck": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
   }
 }
