@@ -2,7 +2,7 @@ import type { Program } from "@coral-xyz/anchor";
 import * as anchor from "@coral-xyz/anchor";
 import type { FutureOptionMarket } from "../target/types/future_option_market";
 
-describe("future-option-market", () => {
+describe("future-option-market Main Test", () => {
 	// Configure the client to use the local cluster.
 	anchor.setProvider(anchor.AnchorProvider.env());
 
