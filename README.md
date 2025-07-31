@@ -29,13 +29,10 @@ https://github.com/solana-foundation/solana-web3.js/tree/maintenance/v1.x
 
 1 option contract is always worth 100 shares of the underlying asset
 
-Example: an option can lock in a deal of a concert event 30 days later. Then you can decide to buy the locked in ticket price or not. 
+Example: an option can lock you in a future concert ticket schuduled 30 days later. Then you can choose to buy the ticket at the strike price. 
 
-- Pro: It is a good hedge against unexpected events or bad outcome.
-- Con: Highly Leveraged
-
-- Call options: optiom to buy the asset for a strike price within the expiry date
-- Sell options: optiom to sell the asset for a strike price within the expiry date
+- Call options: option to buy the asset for a strike price within the expiry date
+- Sell options: option to sell the asset for a strike price within the expiry date
 
 Breakeven for 1 share
 - Call Options: = strike_price + option price
@@ -46,7 +43,7 @@ Breakeven for 1 share
 
 Scenario: an option is going to expire 5 days later with contract price $1 and strike_price $105
 
-Exit Strategies
+### Exit Strategies
 - Exercise Call Option(Use the option to buy the asset): 100 shares * strike price
 - Sell Call Option for $107/share = contract price + strike_price + profit. Total = (Sell Price - Strike Price) * 100 shares
 - Wait until the option expires, then exercise the Call Option if the asset price is > breakeven

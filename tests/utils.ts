@@ -20,17 +20,38 @@ export type ConfigT = {
 	balance: anchor.BN;
 	time: number;
 };
+export type OptCtrtT = {
+	assetName: string;
+	isCall: boolean;
+	strike: anchor.BN; //strike_price
+	price: anchor.BN;
+	expiry: number;
+};
 
-export const getConfigAcct = (
+export const getConfig = (programId: PublicKey, pdaName: string): PublicKey => {
+	const [publickey, bump] = PublicKey.findProgramAddressSync(
+		[Buffer.from("future_option_config")],
+		programId,
+	);
+	ll(pdaName, ":", publickey.toBase58());
+	return publickey;
+};
+export const getOptCtrt = (
+	optionId: string,
+	opt_admin: PublicKey,
 	programId: PublicKey,
 	pdaName: string,
 ): PublicKey => {
-	const [configPbk, configBump] = PublicKey.findProgramAddressSync(
-		[Buffer.from("future_option_market_config")],
+	const [publickey, bump] = PublicKey.findProgramAddressSync(
+		[
+			Buffer.from("future_option_contract"),
+			opt_admin.toBuffer(),
+			Buffer.from(optionId),
+		],
 		programId,
 	);
-	ll(pdaName, ":", configPbk.toBase58());
-	return configPbk;
+	ll(pdaName, ":", publickey.toBase58());
+	return publickey;
 };
 
 export const delayFunc = (delay: number): Promise<boolean> =>
@@ -40,6 +61,7 @@ export const delayFunc = (delay: number): Promise<boolean> =>
 			resolve(true); //or reject()
 		}, delay),
 	);
+export const time = () => Math.floor(Date.now() / 1000);
 
 export const llbl = (text: string) => {
 	console.log(chalk.blue(text));

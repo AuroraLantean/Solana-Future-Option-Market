@@ -1,13 +1,16 @@
 #![allow(unexpected_cfgs)]
 use anchor_lang::prelude::*;
 
-mod err;
+//mod err;
 //mod events;
 
 declare_id!("CgZEcSRPh1Ay1EYR4VJPTJRYcRkTDjjZhBAjZ5M8keGp");
 
-pub const CONFIG: &[u8; 27] = b"future_option_market_config";
+pub const CONFIG: &[u8; 20] = b"future_option_config";
+pub const OPTIONCONTRACT: &[u8; 22] = b"future_option_contract";
 pub const OPTION_SHARES: u128 = 100;
+pub const OPTION_ID_MAX_LEN: u8 = 20;
+pub const ASSET_NAME_MAX_LEN: u8 = 20;
 
 fn time() -> Result<u32> {
   let clock = Clock::get().expect("clock time failed");
@@ -16,20 +19,9 @@ fn time() -> Result<u32> {
   Ok(time)
 }
 
-#[account]
-#[derive(InitSpace)]
-pub struct OptionContract {
-  pub is_call: bool,
-  #[max_len(20)]
-  pub asset: String,
-  pub strike: u128, //strike_price
-  pub expiry: u32,
-  pub price: u128, //ask price, price per share to buy 1 contract, but must multiply this by 100 shares to get the premium(total cost)
-}
 #[program]
 pub mod future_option_market {
   use super::*;
-  use ErrorCode::*;
 
   pub fn initialize(ctx: Context<InitConfig>) -> Result<()> {
     msg!("initialize with prog_id: {:?}", ctx.program_id);
@@ -50,7 +42,70 @@ pub mod future_option_market {
     config.time = time;
     Ok(())
   }
+  pub fn new_option(
+    ctx: Context<NewOption>,
+    option_id: String,
+    asset_name: String,
+    is_call_opt: bool,
+    strike: u128,
+    price: u128,
+    expiry: u32,
+  ) -> Result<()> {
+    msg!("new_option()");
+    let optcontract = &mut ctx.accounts.optcontract;
+    //let config = &mut ctx.accounts.config;
+    let time = time()?;
+    require!(expiry > time, ErrorCode::ExpiryTooSoon);
+    require!(
+      !option_id.is_empty() && option_id.len() <= OPTION_ID_MAX_LEN as usize,
+      ErrorCode::OptionIdInvalid
+    );
+    require!(
+      !asset_name.is_empty() && asset_name.len() <= ASSET_NAME_MAX_LEN as usize,
+      ErrorCode::RoomAssetInvalid
+    );
+    optcontract.is_call = is_call_opt;
+    optcontract.asset_name = asset_name;
+    optcontract.strike = strike;
+    optcontract.expiry = expiry;
+    optcontract.price = price;
+    Ok(())
+  }
 }
+/**  pub is_call: bool,
+pub asset_name: String,
+pub strike: u128, //strike_price
+pub price: u128,
+pub expiry: u32, */
+#[derive(Accounts)]
+#[instruction(option_id: String)]
+pub struct NewOption<'info> {
+  #[account(
+        init,
+        payer = signer,
+        space = 8 + OptContract::INIT_SPACE,
+        seeds = [OPTIONCONTRACT, signer.key().as_ref(), option_id.as_bytes()],
+        bump
+    )]
+  pub optcontract: Account<'info, OptContract>,
+  #[account(seeds = [CONFIG], bump)]
+  pub config: Account<'info, Config>,
+  #[account(mut)]
+  pub signer: Signer<'info>,
+  pub system_program: Program<'info, System>,
+}
+//pub token_mint: InterfaceAccount<'info, Mint>,
+#[account]
+#[derive(InitSpace)]
+pub struct OptContract {
+  #[max_len(20)]
+  pub asset_name: String,
+  pub is_call: bool,
+  pub strike: u128, //strike_price
+  pub price: u128, //ask price, price per share to buy 1 contract, but must multiply this by 100 shares to get the premium(total cost)
+  pub expiry: u32,
+}
+
 #[derive(Accounts)]
 pub struct TransferLamports<'info> {
   #[account(mut, seeds = [CONFIG], bump)]
@@ -94,6 +149,17 @@ pub struct Config {
   pub time: u32,
 }
 
+#[error_code]
+pub enum ErrorCode {
+  #[msg("unauthorized")]
+  Unauthorized,
+  #[msg("expiry too soon")]
+  ExpiryTooSoon,
+  #[msg("asset_name invalid")]
+  RoomAssetInvalid,
+  #[msg("option_id invalid")]
+  OptionIdInvalid,
+}
 /*TODO: realloc
 https://solana.com/developers/courses/onchain-development/anchor-pdas
 https://www.quicknode.com/guides/solana-development/anchor/how-to-use-constraints-in-anchor
