@@ -24,10 +24,12 @@ fn time() -> Result<u32> {
 pub mod future_option_market {
   use super::*;
 
-  pub fn initialize(ctx: Context<InitConfig>) -> Result<()> {
+  pub fn initialize(ctx: Context<InitConfig>, unique: Pubkey) -> Result<()> {
     msg!("initialize with prog_id: {:?}", ctx.program_id);
     let config = &mut ctx.accounts.config;
     config.owner = ctx.accounts.auth.key();
+    config.admin = ctx.accounts.auth.key();
+    config.unique = unique;
     Ok(())
   }
   pub fn transfer_lamports(ctx: Context<TransferLamports>, amt: u64) -> Result<()> {
@@ -53,13 +55,18 @@ pub mod future_option_market {
     expiry_times: [u32; LEN],
   ) -> Result<()> {
     msg!("new_option()");
-    let optcontract = &mut ctx.accounts.optcontract;
-    //let config = &mut ctx.accounts.config;
+    let opt_ctrt = &mut ctx.accounts.opt_ctrt;
+    let config = &mut ctx.accounts.config;
+    require!(
+      config.admin == *ctx.accounts.signer.key,
+      ErrorCode::Unauthorized
+    );
+
     let time = time()?;
-    for (idx, v) in expiry_times.into_iter().enumerate() {
+    for (x, v) in expiry_times.into_iter().enumerate() {
       require!(v > time, ErrorCode::ExpiryTooSoon);
-      require!(strike_prices[idx] > 0, ErrorCode::StrikePriceInvalid);
-      require!(ctrt_prices[idx] > 0, ErrorCode::CtrtPriceInvalid);
+      require!(strike_prices[x] > 0, ErrorCode::StrikePriceInvalid);
+      require!(ctrt_prices[x] > 0, ErrorCode::CtrtPriceInvalid);
     }
     require!(
       !option_id.is_empty() && option_id.len() <= OPTION_ID_MAX_LEN,
@@ -67,13 +74,25 @@ pub mod future_option_market {
     );
     require!(
       !asset_name.is_empty() && asset_name.len() <= ASSET_NAME_MAX_LEN,
-      ErrorCode::RoomAssetInvalid
+      ErrorCode::AssetNameInvalid
     );
-    optcontract.is_call = is_call_opt;
-    optcontract.asset_name = asset_name;
-    optcontract.strike_prices = strike_prices;
-    optcontract.expiry_times = expiry_times;
-    optcontract.ctrt_prices = ctrt_prices;
+    opt_ctrt.is_call = is_call_opt;
+    opt_ctrt.asset_name = asset_name;
+    opt_ctrt.strike_prices = strike_prices;
+    opt_ctrt.expiry_times = expiry_times;
+    opt_ctrt.ctrt_prices = ctrt_prices;
+    Ok(())
+  }
+  pub fn buy_option(
+    ctx: Context<NewOption>,
+    option_owner: Pubkey,
+    option_id: String,
+  ) -> Result<()> {
+    msg!("buy_option()");
+    let opt_ctrt = &mut ctx.accounts.opt_ctrt;
+    let config = &mut ctx.accounts.config;
+
+    let time = time()?;
     Ok(())
   }
 }
@@ -89,10 +108,10 @@ pub struct NewOption<'info> {
         init,
         payer = signer,
         space = 8 + OptContract::INIT_SPACE,
-        seeds = [OPTIONCONTRACT, signer.key().as_ref(), option_id.as_bytes()],
+        seeds = [OPTIONCONTRACT, config.unique.key().as_ref(), option_id.as_bytes()],
         bump
     )]
-  pub optcontract: Account<'info, OptContract>,
+  pub opt_ctrt: Account<'info, OptContract>,
   #[account(seeds = [CONFIG], bump)]
   pub config: Account<'info, Config>,
   #[account(mut)]
@@ -150,6 +169,8 @@ pub struct InitConfig<'info> {
 #[derive(InitSpace)]
 pub struct Config {
   pub owner: Pubkey,
+  pub admin: Pubkey,
+  pub unique: Pubkey,
   pub balance: u128,
   pub time: u32,
 }
@@ -161,7 +182,7 @@ pub enum ErrorCode {
   #[msg("expiry too soon")]
   ExpiryTooSoon,
   #[msg("asset_name invalid")]
-  RoomAssetInvalid,
+  AssetNameInvalid,
   #[msg("option_id invalid")]
   OptionIdInvalid,
   #[msg("strike price invalid")]

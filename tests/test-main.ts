@@ -62,6 +62,8 @@ describe("Future Option Main Test", () => {
 	const pgid = program.programId;
 	const configPbk = getConfig(pgid, "config");
 
+	const uniqueKp = new Keypair();
+	const unique = uniqueKp.publicKey;
 	const adamKp = new Keypair();
 	const adam = adamKp.publicKey;
 	const bobKp = new Keypair();
@@ -80,7 +82,7 @@ describe("Future Option Main Test", () => {
 	//expect(balanceAfter).toBe(transferLamports);
 
 	it("init Config PDA", async () => {
-		const tx = await program.methods.initialize().rpc();
+		const tx = await program.methods.initialize(unique).rpc();
 		ll("tx", tx);
 		config = await program.account.config.fetch(configPbk);
 		//ll("config:", JSON.stringify(config));
@@ -130,15 +132,13 @@ describe("Future Option Main Test", () => {
 			})
 			.rpc();
 		ll("check 010");
-		const optCtrtPbk = getOptCtrt(optionId, walletPk, pgid, "option");
+		const optCtrtPbk = getOptCtrt(optionId, unique, pgid, "option");
 		optCtrt = await program.account.optContract.fetch(optCtrtPbk);
 		ll("check23 optCtrt:", JSON.stringify(optCtrt));
-		ll("check 011");
 		ll(optCtrt.strikePrices[0]?.toNumber());
 		ll(optCtrt.ctrtPrices[0]?.toNumber());
 		assert(assetName === optCtrt.assetName);
 		assert(isCallOpt === optCtrt.isCall);
-		ll("check 012");
 		assert(expiryTimes[0] === optCtrt.expiryTimes[0]);
 		assert(optCtrt.strikePrices[0]?.toNumber() === strikePrices[0]?.toNumber());
 		assert(optCtrt.ctrtPrices[0]?.toNumber() === ctrtPrices[0]?.toNumber());

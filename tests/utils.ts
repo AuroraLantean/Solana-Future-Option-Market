@@ -40,14 +40,14 @@ export const getConfig = (programId: PublicKey, pdaName: string): PublicKey => {
 };
 export const getOptCtrt = (
 	optionId: string,
-	opt_admin: PublicKey,
+	config_uniquekey: PublicKey,
 	programId: PublicKey,
 	pdaName: string,
 ): PublicKey => {
 	const [publickey, bump] = PublicKey.findProgramAddressSync(
 		[
 			Buffer.from("future_option_contract"),
-			opt_admin.toBuffer(),
+			config_uniquekey.toBuffer(),
 			Buffer.from(optionId),
 		],
 		programId,
