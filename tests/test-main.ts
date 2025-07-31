@@ -28,6 +28,7 @@ import {
 	type OptCtrtT,
 	time,
 	unixToLocal,
+	week,
 	zero,
 } from "./utils.ts";
 
@@ -36,9 +37,13 @@ let optCtrt: OptCtrtT;
 let keypair: Keypair;
 let amount: number;
 let timeLocal: number;
-let expiry: number;
+let t0: number;
 let strike: anchor.BN;
 let ctrtPrice: anchor.BN;
+let expiry: number;
+let strikePrices: anchor.BN[];
+let ctrtPrices: anchor.BN[];
+let expiryTimes: number[];
 let tx: string;
 let optionId: string;
 let assetName: string;
@@ -81,7 +86,6 @@ describe("Future Option Main Test", () => {
 		//ll("config:", JSON.stringify(config));
 		expect(config.owner.equals(walletPk));
 		expect(config.balance.eq(zero));
-		//assert.ok(counterAccount.count.eq(new anchor.BN(0)));
 	});
 
 	it("Owner: New Call Option", async () => {
@@ -89,28 +93,55 @@ describe("Future Option Main Test", () => {
 		optionId = "owner-0";
 		assetName = "Bitcoin";
 		isCallOpt = true;
-		strike = bn(120000);
-		ctrtPrice = bn(1000000);
-		timeLocal = time();
-		expiry = timeLocal + 10;
-		ll("timeLocal", timeLocal);
-
+		strikePrices = [
+			bn(115000),
+			bn(116000),
+			bn(117000),
+			bn(118000),
+			bn(119000),
+			bn(120000),
+			bn(121000),
+		];
+		ctrtPrices = [bn(94), bn(95), bn(96), bn(97), bn(98), bn(99), bn(100)];
+		t0 = time();
+		ll("t0:", t0);
+		expiryTimes = [
+			t0 + week,
+			t0 + week * 2,
+			t0 + week * 3,
+			t0 + week * 4,
+			t0 + week * 5,
+			t0 + week * 6,
+			t0 + week * 7,
+		];
+		ll("about to call newOption()");
 		await program.methods
-			.newOption(optionId, assetName, isCallOpt, strike, ctrtPrice, expiry)
+			.newOption(
+				optionId,
+				assetName,
+				isCallOpt,
+				strikePrices,
+				ctrtPrices,
+				expiryTimes,
+			)
 			.accounts({
 				//signer: auth,
 				//config: settingsPbk,
 			})
 			.rpc();
+		ll("check 010");
 		const optCtrtPbk = getOptCtrt(optionId, walletPk, pgid, "option");
 		optCtrt = await program.account.optContract.fetch(optCtrtPbk);
 		ll("check23 optCtrt:", JSON.stringify(optCtrt));
-		ll(optCtrt.strike, optCtrt.price);
+		ll("check 011");
+		ll(optCtrt.strikePrices[0]?.toNumber());
+		ll(optCtrt.ctrtPrices[0]?.toNumber());
 		assert(assetName === optCtrt.assetName);
 		assert(isCallOpt === optCtrt.isCall);
-		assert(expiry === optCtrt.expiry);
-		assert.ok(optCtrt.strike.eq(strike));
-		assert.ok(optCtrt.price.eq(ctrtPrice));
+		ll("check 012");
+		assert(expiryTimes[0] === optCtrt.expiryTimes[0]);
+		assert(optCtrt.strikePrices[0]?.toNumber() === strikePrices[0]?.toNumber());
+		assert(optCtrt.ctrtPrices[0]?.toNumber() === ctrtPrices[0]?.toNumber());
 	});
 
 	it("time travel", async () => {

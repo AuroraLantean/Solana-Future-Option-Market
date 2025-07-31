@@ -6,6 +6,8 @@ import chalk from "chalk";
 export const ll = console.log;
 export const bn = (num: number | string) => new BN(num);
 export const zero = bn(0);
+export const day = 86400;
+export const week = 604800;
 
 export const usdcMint = new PublicKey(
 	"EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
@@ -23,9 +25,9 @@ export type ConfigT = {
 export type OptCtrtT = {
 	assetName: string;
 	isCall: boolean;
-	strike: anchor.BN; //strike_price
-	price: anchor.BN;
-	expiry: number;
+	strikePrices: anchor.BN[]; //strike_price
+	ctrtPrices: anchor.BN[];
+	expiryTimes: number[];
 };
 
 export const getConfig = (programId: PublicKey, pdaName: string): PublicKey => {

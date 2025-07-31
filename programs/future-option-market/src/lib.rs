@@ -9,8 +9,9 @@ declare_id!("CgZEcSRPh1Ay1EYR4VJPTJRYcRkTDjjZhBAjZ5M8keGp");
 pub const CONFIG: &[u8; 20] = b"future_option_config";
 pub const OPTIONCONTRACT: &[u8; 22] = b"future_option_contract";
 pub const OPTION_SHARES: u128 = 100;
-pub const OPTION_ID_MAX_LEN: u8 = 20;
-pub const ASSET_NAME_MAX_LEN: u8 = 20;
+pub const OPTION_ID_MAX_LEN: usize = 20;
+pub const ASSET_NAME_MAX_LEN: usize = 20;
+pub const LEN: usize = 7;
 
 fn time() -> Result<u32> {
   let clock = Clock::get().expect("clock time failed");
@@ -47,36 +48,40 @@ pub mod future_option_market {
     option_id: String,
     asset_name: String,
     is_call_opt: bool,
-    strike: u128,
-    price: u128,
-    expiry: u32,
+    strike_prices: [u128; LEN],
+    ctrt_prices: [u128; LEN],
+    expiry_times: [u32; LEN],
   ) -> Result<()> {
     msg!("new_option()");
     let optcontract = &mut ctx.accounts.optcontract;
     //let config = &mut ctx.accounts.config;
     let time = time()?;
-    require!(expiry > time, ErrorCode::ExpiryTooSoon);
+    for (idx, v) in expiry_times.into_iter().enumerate() {
+      require!(v > time, ErrorCode::ExpiryTooSoon);
+      require!(strike_prices[idx] > 0, ErrorCode::StrikePriceInvalid);
+      require!(ctrt_prices[idx] > 0, ErrorCode::CtrtPriceInvalid);
+    }
     require!(
-      !option_id.is_empty() && option_id.len() <= OPTION_ID_MAX_LEN as usize,
+      !option_id.is_empty() && option_id.len() <= OPTION_ID_MAX_LEN,
       ErrorCode::OptionIdInvalid
     );
     require!(
-      !asset_name.is_empty() && asset_name.len() <= ASSET_NAME_MAX_LEN as usize,
+      !asset_name.is_empty() && asset_name.len() <= ASSET_NAME_MAX_LEN,
       ErrorCode::RoomAssetInvalid
     );
     optcontract.is_call = is_call_opt;
     optcontract.asset_name = asset_name;
-    optcontract.strike = strike;
-    optcontract.expiry = expiry;
-    optcontract.price = price;
+    optcontract.strike_prices = strike_prices;
+    optcontract.expiry_times = expiry_times;
+    optcontract.ctrt_prices = ctrt_prices;
     Ok(())
   }
 }
 /**  pub is_call: bool,
 pub asset_name: String,
-pub strike: u128, //strike_price
+pub strike_prices: u128, //strike_price
 pub price: u128,
-pub expiry: u32, */
+pub expiry_times: u32, */
 #[derive(Accounts)]
 #[instruction(option_id: String)]
 pub struct NewOption<'info> {
@@ -101,9 +106,9 @@ pub struct OptContract {
   #[max_len(20)]
   pub asset_name: String,
   pub is_call: bool,
-  pub strike: u128, //strike_price
-  pub price: u128, //ask price, price per share to buy 1 contract, but must multiply this by 100 shares to get the premium(total cost)
-  pub expiry: u32,
+  pub strike_prices: [u128; LEN], //strike_price
+  pub ctrt_prices: [u128; LEN], //ask price, price per share to buy 1 contract, but must multiply this by 100 shares to get the premium(total cost)
+  pub expiry_times: [u32; LEN],
 }
 
 #[derive(Accounts)]
@@ -145,7 +150,7 @@ pub struct InitConfig<'info> {
 #[derive(InitSpace)]
 pub struct Config {
   pub owner: Pubkey,
-  pub balance: u64,
+  pub balance: u128,
   pub time: u32,
 }
 
@@ -159,6 +164,10 @@ pub enum ErrorCode {
   RoomAssetInvalid,
   #[msg("option_id invalid")]
   OptionIdInvalid,
+  #[msg("strike price invalid")]
+  StrikePriceInvalid,
+  #[msg("contract price invalid")]
+  CtrtPriceInvalid,
 }
 /*TODO: realloc
 https://solana.com/developers/courses/onchain-development/anchor-pdas
