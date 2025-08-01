@@ -1,33 +1,22 @@
 import type { Program } from "@coral-xyz/anchor";
 import * as anchor from "@coral-xyz/anchor";
-import {
-	ACCOUNT_SIZE,
-	AccountLayout,
-	getAssociatedTokenAddressSync,
-	TOKEN_PROGRAM_ID,
-} from "@solana/spl-token";
-import {
-	Keypair,
-	LAMPORTS_PER_SOL,
-	type PublicKey,
-	SystemProgram,
-	Transaction,
-	TransactionInstruction,
-} from "@solana/web3.js";
+import { Keypair, type PublicKey } from "@solana/web3.js";
 import { assert, expect } from "chai";
-import { LiteSVM } from "litesvm";
+//import { type AccountInfoBytes, LiteSVM } from "litesvm";
 import type { FutureOptionMarket } from "../target/types/future_option_market";
 import {
-	bigSol,
+	addSol,
+	balcSOL,
 	bn,
 	type ConfigT,
 	getConfig,
 	getOptCtrt,
 	ll,
-	llbl,
+	newMint,
 	type OptCtrtT,
 	time,
-	unixToLocal,
+	tokenProg,
+	usdxDecimals,
 	week,
 	zero,
 } from "./utils.ts";
@@ -36,6 +25,8 @@ let config: ConfigT;
 let optCtrt: OptCtrtT;
 let keypair: Keypair;
 let amount: number;
+let amtInBig: bigint;
+let amtOutBig: bigint;
 let timeLocal: number;
 let t0: number;
 let strike: anchor.BN;
@@ -47,51 +38,69 @@ let expiryTimes: number[];
 let tx: string;
 let optionId: string;
 let assetName: string;
-let assetNameOut: string;
 let isCallOpt: boolean;
-let to: PublicKey;
+let ata: PublicKey;
+let usdxMint: PublicKey;
 
 describe("Future Option Main Test", () => {
 	const provider = anchor.AnchorProvider.env();
+	const conn = provider.connection;
 	anchor.setProvider(provider);
 
 	const program = anchor.workspace
 		.FutureOptionMarket as Program<FutureOptionMarket>;
-	const wallet = provider.wallet as anchor.Wallet;
-	const walletPk = wallet.publicKey;
+	const wat = provider.wallet as anchor.Wallet;
+	const wallet = wat.publicKey;
 	const pgid = program.programId;
 	const configPbk = getConfig(pgid, "config");
 
+	const mintAuthKp = new Keypair();
+	const mintAuth = mintAuthKp.publicKey;
 	const uniqueKp = new Keypair();
 	const unique = uniqueKp.publicKey;
-	const adamKp = new Keypair();
-	const adam = adamKp.publicKey;
-	const bobKp = new Keypair();
-	const bob = bobKp.publicKey;
+	const jimKp = new Keypair();
+	const jim = jimKp.publicKey;
+	const jonKp = new Keypair();
+	const jon = jonKp.publicKey;
 
-	const svm = new LiteSVM();
-	const sol = (pubk: PublicKey) => svm.getBalance(pubk);
-	ll(`wallet: ${walletPk}, ${sol(walletPk)}`);
-	svm.airdrop(adam, bigSol(1000));
-	llbl(`Adam balance:	${sol(adam)}`);
-	svm.airdrop(bob, bigSol(1000));
-	llbl(`Bob balance:	${sol(bob)}`);
+	before(async () => {
+		await balcSOL(conn, wallet, "wallet");
+		await addSol(conn, mintAuth, "mintAuth");
+		await addSol(conn, jim, "jim");
+		await addSol(conn, jon, "jon");
+	});
 
 	//const receiver = PublicKey.unique();
 	//const blockhash = svm.latestBlockhash();
 	//expect(balanceAfter).toBe(transferLamports);
 
-	it("init Config PDA", async () => {
-		const tx = await program.methods.initialize(unique).rpc();
-		ll("tx", tx);
+	it("init Mint", async () => {
+		usdxMint = await newMint(
+			conn,
+			mintAuthKp,
+			mintAuth,
+			usdxDecimals,
+			"usdxMint",
+		);
+	});
+
+	it("init Config", async () => {
+		const tx = await program.methods
+			.initialize([unique, tokenProg])
+			.accounts({
+				mint: usdxMint,
+				//config: configPbk,
+				//signer: admin, // keypair.publicKey,
+			})
+			.rpc(); //.signers([keypair])
+		ll("config init tx", tx);
 		config = await program.account.config.fetch(configPbk);
 		//ll("config:", JSON.stringify(config));
-		expect(config.owner.equals(walletPk));
+		expect(config.owner.equals(wallet));
 		expect(config.balance.eq(zero));
 	});
 
 	it("Owner: New Call Option", async () => {
-		ll("check21");
 		optionId = "owner-0";
 		assetName = "Bitcoin";
 		isCallOpt = true;
@@ -127,8 +136,8 @@ describe("Future Option Main Test", () => {
 				expiryTimes,
 			)
 			.accounts({
-				//signer: auth,
-				//config: settingsPbk,
+				//config: configPbk,
+				//signer: admin,
 			})
 			.rpc();
 		ll("check 010");
@@ -144,14 +153,16 @@ describe("Future Option Main Test", () => {
 		assert(optCtrt.ctrtPrices[0]?.toNumber() === ctrtPrices[0]?.toNumber());
 	});
 
-	it("time travel", async () => {
+	it("User1 buys Call Option", async () => {});
+
+	/*it("time travel", async () => {
 		const clock = svm.getClock();
 		ll("pre travel clock:", clock.slot, clock.unixTimestamp);
 
 		tx = await program.methods
 			.timeTravel()
 			.accounts({
-				from: walletPk,
+				from: wallet,
 			})
 			.rpc();
 		config = await program.account.config.fetch(configPbk);
@@ -164,15 +175,15 @@ describe("Future Option Main Test", () => {
 		ll("after travel clock1:", clock1.slot, clock1.unixTimestamp);
 		ll("wanted time:", unixToLocal(Number(clock1.unixTimestamp.toString())));
 
-		keypair = adamKp;
+		keypair = jimKp;
 		amount = 100;
 		tx = await program.methods
 			.timeTravel()
 			.accounts({
-				from: walletPk,
+				from: wallet,
 			})
 			.rpc();
 		config = await program.account.config.fetch(configPbk);
 		ll("in Sol:", unixToLocal(config.time));
-	});
+	});*/
 });

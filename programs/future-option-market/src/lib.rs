@@ -1,13 +1,18 @@
 #![allow(unexpected_cfgs)]
 use anchor_lang::prelude::*;
-
+use anchor_spl::token_interface::{
+  transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked,
+};
 //mod err;
 //mod events;
 
 declare_id!("CgZEcSRPh1Ay1EYR4VJPTJRYcRkTDjjZhBAjZ5M8keGp");
 
 pub const CONFIG: &[u8; 20] = b"future_option_config";
-pub const OPTIONCONTRACT: &[u8; 22] = b"future_option_contract";
+pub const OPTIONCTRT: &[u8; 22] = b"future_option_contract";
+pub const TOKPDA: &[u8; 20] = b"future_option_tokpda";
+pub const USEROPTIONCTRT: &[u8; 26] = b"future_option_user_optctrt";
+
 pub const OPTION_SHARES: u128 = 100;
 pub const OPTION_ID_MAX_LEN: usize = 20;
 pub const ASSET_NAME_MAX_LEN: usize = 20;
@@ -24,12 +29,14 @@ fn time() -> Result<u32> {
 pub mod future_option_market {
   use super::*;
 
-  pub fn initialize(ctx: Context<InitConfig>, unique: Pubkey) -> Result<()> {
+  pub fn initialize(ctx: Context<InitConfig>, pubkey: [Pubkey; 2]) -> Result<()> {
     msg!("initialize with prog_id: {:?}", ctx.program_id);
     let config = &mut ctx.accounts.config;
-    config.owner = ctx.accounts.auth.key();
-    config.admin = ctx.accounts.auth.key();
-    config.unique = unique;
+    config.owner = ctx.accounts.signer.key();
+    config.admin = ctx.accounts.signer.key();
+    //config.mint = ctx.accounts.mint.key();
+    config.unique = pubkey[0];
+    config.token_program = pubkey[1];
     Ok(())
   }
   pub fn transfer_lamports(ctx: Context<TransferLamports>, amt: u64) -> Result<()> {
@@ -84,7 +91,7 @@ pub mod future_option_market {
     Ok(())
   }
   pub fn buy_option(
-    ctx: Context<NewOption>,
+    ctx: Context<BuyOption>,
     option_owner: Pubkey,
     option_id: String,
   ) -> Result<()> {
@@ -103,12 +110,27 @@ pub price: u128,
 pub expiry_times: u32, */
 #[derive(Accounts)]
 #[instruction(option_id: String)]
+pub struct BuyOption<'info> {
+  #[account(mut)]
+  pub opt_ctrt: Box<Account<'info, OptContract>>,
+  #[account(seeds = [CONFIG], bump)]
+  pub config: Account<'info, Config>,
+
+  //#[account(mut, seeds = [USEROPTIONCTRT, user.key().as_ref(), opt_ctrt.key().as_ref()], bump)]
+  //pub user_option: Account<'info, UserOption>,
+  pub user: Signer<'info>,
+  #[account(constraint = config.token_program == token_program.key())]
+  pub token_program: Interface<'info, TokenInterface>,
+} //Box should only be used when you have very large structs that might cause stack overflow issues.
+
+#[derive(Accounts)]
+#[instruction(option_id: String)]
 pub struct NewOption<'info> {
   #[account(
         init,
         payer = signer,
         space = 8 + OptContract::INIT_SPACE,
-        seeds = [OPTIONCONTRACT, config.unique.key().as_ref(), option_id.as_bytes()],
+        seeds = [OPTIONCTRT, config.unique.key().as_ref(), option_id.as_bytes()],
         bump
     )]
   pub opt_ctrt: Account<'info, OptContract>,
@@ -155,14 +177,15 @@ pub struct Timetravel<'info> {
 pub struct InitConfig<'info> {
   #[account(
         init,
-        payer = auth,
+        payer = signer,
         space = 8 + Config::INIT_SPACE,
         seeds = [CONFIG],
         bump
     )]
   pub config: Account<'info, Config>,
+  pub mint: InterfaceAccount<'info, Mint>,
   #[account(mut)]
-  pub auth: Signer<'info>,
+  pub signer: Signer<'info>,
   pub system_program: Program<'info, System>,
 }
 #[account]
@@ -172,6 +195,8 @@ pub struct Config {
   pub admin: Pubkey,
   pub unique: Pubkey,
   pub balance: u128,
+  pub mint: Pubkey,
+  pub token_program: Pubkey,
   pub time: u32,
 }
 
@@ -189,6 +214,8 @@ pub enum ErrorCode {
   StrikePriceInvalid,
   #[msg("contract price invalid")]
   CtrtPriceInvalid,
+  #[msg("token mint invalid")]
+  TokenMintInvalid,
 }
 /*TODO: realloc
 https://solana.com/developers/courses/onchain-development/anchor-pdas

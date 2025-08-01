@@ -48,6 +48,9 @@ Scenario: an option is going to expire 5 days later with contract price $1 and s
 - Sell Call Option for $107/share = contract price + strike_price + profit. Total = (Sell Price - Strike Price) * 100 shares
 - Wait until the option expires, then exercise the Call Option if the asset price is > breakeven
 
+### Currency Pairs
+Example: In the EUR/USD pair, if the exchange rate is 1.2000, it means that one euro is worth 1.2000 US dollars. In this case, the euro is the base currency, and the US dollar is the quote currency. 
+
 ## Operation
 Market Admin opens an Option Contract with 3 possible outcomes
 

@@ -2,7 +2,8 @@
   "compilerOptions": {
     "types": [
       "mocha",
-      "chai"
+      "chai",
+      "bun"
     ],
     "typeRoots": [
       "./node_modules/@types"
