@@ -11,11 +11,13 @@ import {
 	type ConfigT,
 	getConfig,
 	getOptCtrt,
+	getUserPayment,
 	ll,
 	newMint,
 	type OptCtrtT,
 	time,
 	tokenProg,
+	type UserPaymentT,
 	usdxDecimals,
 	week,
 	zero,
@@ -23,6 +25,9 @@ import {
 
 let config: ConfigT;
 let optCtrt: OptCtrtT;
+let user1Payment: UserPaymentT;
+let user2Payment: UserPaymentT;
+let user3Payment: UserPaymentT;
 let keypair: Keypair;
 let amount: number;
 let amtInBig: bigint;
@@ -39,7 +44,10 @@ let tx: string;
 let optionId: string;
 let assetName: string;
 let isCallOpt: boolean;
-let ata: PublicKey;
+let optCtrtPbk: PublicKey;
+let user1PaymentPbk: PublicKey;
+let user2PaymentPbk: PublicKey;
+let user3PaymentPbk: PublicKey;
 let usdxMint: PublicKey;
 
 describe("Future Option Main Test", () => {
@@ -58,21 +66,17 @@ describe("Future Option Main Test", () => {
 	const mintAuth = mintAuthKp.publicKey;
 	const uniqueKp = new Keypair();
 	const unique = uniqueKp.publicKey;
-	const jimKp = new Keypair();
-	const jim = jimKp.publicKey;
-	const jonKp = new Keypair();
-	const jon = jonKp.publicKey;
+	const user1Kp = new Keypair();
+	const user1 = user1Kp.publicKey;
+	const user2Kp = new Keypair();
+	const user2 = user2Kp.publicKey;
 
 	before(async () => {
 		await balcSOL(conn, wallet, "wallet");
 		await addSol(conn, mintAuth, "mintAuth");
-		await addSol(conn, jim, "jim");
-		await addSol(conn, jon, "jon");
+		await addSol(conn, user1, "user1");
+		await addSol(conn, user2, "user2");
 	});
-
-	//const receiver = PublicKey.unique();
-	//const blockhash = svm.latestBlockhash();
-	//expect(balanceAfter).toBe(transferLamports);
 
 	it("init Mint", async () => {
 		usdxMint = await newMint(
@@ -86,7 +90,7 @@ describe("Future Option Main Test", () => {
 
 	it("init Config", async () => {
 		const tx = await program.methods
-			.initialize([unique, tokenProg])
+			.initConfig([unique, tokenProg])
 			.accounts({
 				mint: usdxMint,
 				//config: configPbk,
@@ -141,7 +145,7 @@ describe("Future Option Main Test", () => {
 			})
 			.rpc();
 		ll("check 010");
-		const optCtrtPbk = getOptCtrt(optionId, unique, pgid, "option");
+		optCtrtPbk = getOptCtrt(optionId, unique, pgid, "option");
 		optCtrt = await program.account.optContract.fetch(optCtrtPbk);
 		ll("check23 optCtrt:", JSON.stringify(optCtrt));
 		ll(optCtrt.strikePrices[0]?.toNumber());
@@ -153,7 +157,30 @@ describe("Future Option Main Test", () => {
 		assert(optCtrt.ctrtPrices[0]?.toNumber() === ctrtPrices[0]?.toNumber());
 	});
 
-	it("User1 buys Call Option", async () => {});
+	it("User1 init UserPayment", async () => {
+		keypair = user1Kp;
+		const tx = await program.methods
+			.initUserPayment()
+			.accounts({
+				optCtrt: optCtrtPbk,
+				//config: configPbk,
+				user: keypair.publicKey,
+			})
+			.signers([keypair])
+			.rpc();
+		ll("config init tx", tx);
+
+		user1PaymentPbk = getUserPayment(
+			keypair.publicKey,
+			optCtrtPbk,
+			pgid,
+			"userPayment",
+		);
+		user1Payment = await program.account.userPayment.fetch(user1PaymentPbk);
+		ll("user1Payment:", JSON.stringify(user1Payment));
+		expect(user1Payment.payments[0]!.eq(zero));
+		//expect(user1Payment.balance.eq(zero));
+	});
 
 	/*it("time travel", async () => {
 		const clock = svm.getClock();
@@ -175,7 +202,7 @@ describe("Future Option Main Test", () => {
 		ll("after travel clock1:", clock1.slot, clock1.unixTimestamp);
 		ll("wanted time:", unixToLocal(Number(clock1.unixTimestamp.toString())));
 
-		keypair = jimKp;
+		keypair = user1Kp;
 		amount = 100;
 		tx = await program.methods
 			.timeTravel()

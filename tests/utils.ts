@@ -42,6 +42,9 @@ export type OptCtrtT = {
 	ctrtPrices: anchor.BN[];
 	expiryTimes: number[];
 };
+export type UserPaymentT = {
+	payments: anchor.BN[]; //strike_price
+};
 
 export const getConfig = (programId: PublicKey, pdaName: string): PublicKey => {
 	const [publickey, bump] = PublicKey.findProgramAddressSync(
@@ -62,6 +65,23 @@ export const getOptCtrt = (
 			Buffer.from("future_option_contract"),
 			config_uniquekey.toBuffer(),
 			Buffer.from(optionId),
+		],
+		programId,
+	);
+	ll(pdaName, ":", publickey.toBase58());
+	return publickey;
+};
+export const getUserPayment = (
+	user: PublicKey,
+	opt_ctrt: PublicKey,
+	programId: PublicKey,
+	pdaName: string,
+): PublicKey => {
+	const [publickey, bump] = PublicKey.findProgramAddressSync(
+		[
+			Buffer.from("future_option_user_payment"),
+			user.toBuffer(),
+			opt_ctrt.toBuffer(),
 		],
 		programId,
 	);

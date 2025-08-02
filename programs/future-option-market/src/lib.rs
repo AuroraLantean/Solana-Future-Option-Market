@@ -10,8 +10,8 @@ declare_id!("CgZEcSRPh1Ay1EYR4VJPTJRYcRkTDjjZhBAjZ5M8keGp");
 
 pub const CONFIG: &[u8; 20] = b"future_option_config";
 pub const OPTIONCTRT: &[u8; 22] = b"future_option_contract";
-pub const TOKPDA: &[u8; 20] = b"future_option_tokpda";
-pub const USEROPTIONCTRT: &[u8; 26] = b"future_option_user_optctrt";
+pub const TOKENVAULT: &[u8; 25] = b"future_option_token_vault";
+pub const USERPAYMENT: &[u8; 26] = b"future_option_user_payment";
 
 pub const OPTION_SHARES: u128 = 100;
 pub const OPTION_ID_MAX_LEN: usize = 20;
@@ -29,7 +29,7 @@ fn time() -> Result<u32> {
 pub mod future_option_market {
   use super::*;
 
-  pub fn initialize(ctx: Context<InitConfig>, pubkey: [Pubkey; 2]) -> Result<()> {
+  pub fn init_config(ctx: Context<InitConfig>, pubkey: [Pubkey; 2]) -> Result<()> {
     msg!("initialize with prog_id: {:?}", ctx.program_id);
     let config = &mut ctx.accounts.config;
     config.owner = ctx.accounts.signer.key();
@@ -102,19 +102,31 @@ pub mod future_option_market {
     let time = time()?;
     Ok(())
   }
+  pub fn init_user_payment(_ctx: Context<InitUserPayment>) -> Result<()> {
+    msg!("init_user_payment()");
+    //let user_payment = &mut ctx.accounts.user_payment;
+    Ok(())
+  }
 }
 /**  pub is_call: bool,
 pub asset_name: String,
-pub strike_prices: u128, //strike_price
-pub price: u128,
-pub expiry_times: u32, */
+pub strike_prices: [u128; LEN],, //strike_price
+pub price: [u128; LEN],,
+pub expiry_times: [u32; LEN], */
 #[derive(Accounts)]
 #[instruction(option_id: String)]
 pub struct BuyOption<'info> {
   #[account(mut)]
-  pub opt_ctrt: Box<Account<'info, OptContract>>,
+  pub opt_ctrt: Account<'info, OptContract>,
   #[account(seeds = [CONFIG], bump)]
   pub config: Account<'info, Config>,
+
+  #[account(mut,token::mint = mint, token::authority = user, token::token_program = token_program)]
+  pub ata: InterfaceAccount<'info, TokenAccount>,
+  #[account(mut, seeds = [TOKENVAULT], bump, token::mint = mint, token::token_program = token_program)]
+  pub token_pda: InterfaceAccount<'info, TokenAccount>,
+  #[account(constraint = config.mint == mint.key() @ ErrorCode::TokenMintInvalid)]
+  pub mint: InterfaceAccount<'info, Mint>,
 
   //#[account(mut, seeds = [USEROPTIONCTRT, user.key().as_ref(), opt_ctrt.key().as_ref()], bump)]
   //pub user_option: Account<'info, UserOption>,
@@ -122,7 +134,23 @@ pub struct BuyOption<'info> {
   #[account(constraint = config.token_program == token_program.key())]
   pub token_program: Interface<'info, TokenInterface>,
 } //Box should only be used when you have very large structs that might cause stack overflow issues.
-
+#[account]
+#[derive(InitSpace)]
+pub struct UserPayment {
+  pub payments: [u128; LEN],
+}
+#[derive(Accounts)]
+pub struct InitUserPayment<'info> {
+  #[account(init, payer = user, seeds = [USERPAYMENT, user.key().as_ref(), opt_ctrt.key().as_ref()], bump, space = 8 + UserPayment::INIT_SPACE )]
+  pub user_payment: Account<'info, UserPayment>,
+  #[account()] //for validation above
+  pub opt_ctrt: Account<'info, OptContract>,
+  #[account(seeds = [CONFIG], bump)]
+  pub config: Account<'info, Config>,
+  #[account(mut)]
+  pub user: Signer<'info>,
+  pub system_program: Program<'info, System>,
+}
 #[derive(Accounts)]
 #[instruction(option_id: String)]
 pub struct NewOption<'info> {
