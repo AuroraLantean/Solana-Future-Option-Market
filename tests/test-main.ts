@@ -5,10 +5,12 @@ import { assert, expect } from "chai";
 //import { type AccountInfoBytes, LiteSVM } from "litesvm";
 import type { FutureOptionMarket } from "../target/types/future_option_market";
 import {
+	type AdminPdaT,
 	addSol,
 	balcSOL,
 	bn,
 	type ConfigT,
+	getAdminPda,
 	getConfig,
 	getOptCtrt,
 	getUserPayment,
@@ -25,6 +27,7 @@ import {
 
 let config: ConfigT;
 let optCtrt: OptCtrtT;
+let adminPda: AdminPdaT;
 let user1Payment: UserPaymentT;
 let user2Payment: UserPaymentT;
 let user3Payment: UserPaymentT;
@@ -45,6 +48,7 @@ let optionId: string;
 let assetName: string;
 let isCallOpt: boolean;
 let optCtrtPbk: PublicKey;
+let adminPdaPbk: PublicKey;
 let user1PaymentPbk: PublicKey;
 let user2PaymentPbk: PublicKey;
 let user3PaymentPbk: PublicKey;
@@ -89,7 +93,7 @@ describe("Future Option Main Test", () => {
 	});
 
 	it("init Config", async () => {
-		const tx = await program.methods
+		tx = await program.methods
 			.initConfig([unique, tokenProg])
 			.accounts({
 				mint: usdxMint,
@@ -153,13 +157,13 @@ describe("Future Option Main Test", () => {
 		assert(assetName === optCtrt.assetName);
 		assert(isCallOpt === optCtrt.isCall);
 		assert(expiryTimes[0] === optCtrt.expiryTimes[0]);
-		assert(optCtrt.strikePrices[0]?.toNumber() === strikePrices[0]?.toNumber());
-		assert(optCtrt.ctrtPrices[0]?.toNumber() === ctrtPrices[0]?.toNumber());
+		assert(optCtrt.strikePrices[0]!.eq(strikePrices[0]!));
+		assert(optCtrt.ctrtPrices[0]!.eq(ctrtPrices[0]!));
 	});
 
 	it("User1 init UserPayment", async () => {
 		keypair = user1Kp;
-		const tx = await program.methods
+		tx = await program.methods
 			.initUserPayment()
 			.accounts({
 				optCtrt: optCtrtPbk,
@@ -169,6 +173,40 @@ describe("Future Option Main Test", () => {
 			.signers([keypair])
 			.rpc();
 		ll("config init tx", tx);
+
+		user1PaymentPbk = getUserPayment(
+			keypair.publicKey,
+			optCtrtPbk,
+			pgid,
+			"userPayment",
+		);
+		user1Payment = await program.account.userPayment.fetch(user1PaymentPbk);
+		ll("user1Payment:", JSON.stringify(user1Payment));
+		expect(user1Payment.payments[0]!.eq(zero));
+		//expect(user1Payment.balance.eq(zero));
+	});
+
+	it("init Admin PDA", async () => {
+		await program.methods.initAdminPda().accounts({}).rpc();
+		ll("initAdminPda successful");
+
+		adminPdaPbk = getAdminPda(pgid, "admin pda");
+		adminPda = await program.account.adminPda.fetch(adminPdaPbk);
+		ll("authPda:", JSON.stringify(adminPda));
+		expect(adminPda.solBalc.eq(zero));
+	});
+
+	it("User1 buys Option Contract", async () => {
+		keypair = user1Kp;
+		/*tx = await program.methods
+			.buyOption()
+			.accounts({
+				optCtrt: optCtrtPbk,
+				//config: configPbk,
+			})
+			.signers([keypair])
+			.rpc();
+		ll("config init tx", tx);*/
 
 		user1PaymentPbk = getUserPayment(
 			keypair.publicKey,

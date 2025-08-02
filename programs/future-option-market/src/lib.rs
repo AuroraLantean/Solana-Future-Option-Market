@@ -9,6 +9,7 @@ use anchor_spl::token_interface::{
 declare_id!("CgZEcSRPh1Ay1EYR4VJPTJRYcRkTDjjZhBAjZ5M8keGp");
 
 pub const CONFIG: &[u8; 20] = b"future_option_config";
+pub const ADMINPDA: &[u8; 22] = b"future_option_adminpda";
 pub const OPTIONCTRT: &[u8; 22] = b"future_option_contract";
 pub const TOKENVAULT: &[u8; 25] = b"future_option_token_vault";
 pub const USERPAYMENT: &[u8; 26] = b"future_option_user_payment";
@@ -66,7 +67,7 @@ pub mod future_option_market {
     let config = &mut ctx.accounts.config;
     require!(
       config.admin == *ctx.accounts.signer.key,
-      ErrorCode::Unauthorized
+      ErrorCode::OnlyAdmin
     );
 
     let time = time()?;
@@ -90,11 +91,7 @@ pub mod future_option_market {
     opt_ctrt.ctrt_prices = ctrt_prices;
     Ok(())
   }
-  pub fn buy_option(
-    ctx: Context<BuyOption>,
-    option_owner: Pubkey,
-    option_id: String,
-  ) -> Result<()> {
+  pub fn buy_option(ctx: Context<BuyOption>) -> Result<()> {
     msg!("buy_option()");
     let opt_ctrt = &mut ctx.accounts.opt_ctrt;
     let config = &mut ctx.accounts.config;
@@ -107,6 +104,24 @@ pub mod future_option_market {
     //let user_payment = &mut ctx.accounts.user_payment;
     Ok(())
   }
+  pub fn init_admin_pda(_ctx: Context<InitAdminPda>) -> Result<()> {
+    Ok(())
+  }
+}
+#[derive(Accounts)]
+pub struct InitAdminPda<'info> {
+  #[account(init, payer = admin, seeds = [ADMINPDA], bump, space = 8 + AdminPda::INIT_SPACE )]
+  pub admin_pda: Account<'info, AdminPda>,
+  #[account(seeds = [CONFIG], bump, has_one = admin @ ErrorCode::OnlyAdmin)]
+  pub config: Account<'info, Config>,
+  #[account(mut)]
+  pub admin: Signer<'info>,
+  pub system_program: Program<'info, System>,
+}
+#[account]
+#[derive(InitSpace)]
+pub struct AdminPda {
+  pub sol_balc: u128,
 }
 /**  pub is_call: bool,
 pub asset_name: String,
@@ -230,8 +245,8 @@ pub struct Config {
 
 #[error_code]
 pub enum ErrorCode {
-  #[msg("unauthorized")]
-  Unauthorized,
+  #[msg("OnlyAdmin")]
+  OnlyAdmin,
   #[msg("expiry too soon")]
   ExpiryTooSoon,
   #[msg("asset_name invalid")]

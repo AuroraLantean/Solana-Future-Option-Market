@@ -43,7 +43,10 @@ export type OptCtrtT = {
 	expiryTimes: number[];
 };
 export type UserPaymentT = {
-	payments: anchor.BN[]; //strike_price
+	payments: anchor.BN[];
+};
+export type AdminPdaT = {
+	solBalc: anchor.BN;
 };
 
 export const getConfig = (programId: PublicKey, pdaName: string): PublicKey => {
@@ -66,6 +69,17 @@ export const getOptCtrt = (
 			config_uniquekey.toBuffer(),
 			Buffer.from(optionId),
 		],
+		programId,
+	);
+	ll(pdaName, ":", publickey.toBase58());
+	return publickey;
+};
+export const getAdminPda = (
+	programId: PublicKey,
+	pdaName: string,
+): PublicKey => {
+	const [publickey, bump] = PublicKey.findProgramAddressSync(
+		[Buffer.from("future_option_adminpda")],
 		programId,
 	);
 	ll(pdaName, ":", publickey.toBase58());
