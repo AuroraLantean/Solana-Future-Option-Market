@@ -97,14 +97,6 @@ pub mod future_option_market {
     //https://solana.stackexchange.com/questions/1682/how-to-send-spl-tokens-from-pda-account-to-user?rq=1
     Ok(())
   }
-  pub fn buy_option(ctx: Context<BuyOption>) -> Result<()> {
-    msg!("buy_option()");
-    let opt_ctrt = &mut ctx.accounts.opt_ctrt;
-    let config = &mut ctx.accounts.config;
-    //https://solana.stackexchange.com/questions/15390/transfer-tokens-to-and-from-a-program
-    let time = time()?;
-    Ok(())
-  }
   pub fn init_user_payment(_ctx: Context<InitUserPayment>) -> Result<()> {
     msg!("init_user_payment()");
     //let user_payment = &mut ctx.accounts.user_payment;
@@ -120,7 +112,37 @@ pub mod future_option_market {
     config.admin_pda_ata = ctx.accounts.admin_pda_ata.key();
     Ok(())
   }
+  pub fn buy_option(ctx: Context<BuyOption>) -> Result<()> {
+    msg!("buy_option()");
+    let opt_ctrt = &mut ctx.accounts.opt_ctrt;
+    let config = &mut ctx.accounts.config;
+    //https://solana.stackexchange.com/questions/15390/transfer-tokens-to-and-from-a-program
+    let time = time()?;
+    Ok(())
+  }
 }
+#[derive(Accounts)]
+#[instruction(option_id: String)]
+pub struct BuyOption<'info> {
+  #[account(mut)]
+  pub opt_ctrt: Account<'info, OptContract>,
+  #[account(seeds = [CONFIG], bump)]
+  pub config: Account<'info, Config>,
+
+  #[account(mut,token::mint = mint, token::authority = user, token::token_program = token_program)]
+  pub ata: InterfaceAccount<'info, TokenAccount>,
+  #[account(mut, seeds = [TOKENVAULT], bump, token::mint = mint, token::token_program = token_program)]
+  pub token_pda: InterfaceAccount<'info, TokenAccount>,
+  #[account(constraint = config.mint == mint.key() @ ErrorCode::TokenMintInvalid)]
+  pub mint: InterfaceAccount<'info, Mint>,
+
+  //#[account(mut, seeds = [USEROPTIONCTRT, user.key().as_ref(), opt_ctrt.key().as_ref()], bump)]
+  //pub user_option: Account<'info, UserOption>,
+  pub user: Signer<'info>,
+  #[account(constraint = config.token_program == token_program.key())]
+  pub token_program: Interface<'info, TokenInterface>,
+} //Box should only be used when you have very large structs that might cause stack overflow issues.
+
 //https://www.anchor-lang.com/docs/references/account-constraints
 #[derive(Accounts)]
 pub struct InitAdminPdaAta<'info> {
@@ -161,27 +183,6 @@ pub asset_name: String,
 pub strike_prices: [u128; LEN],, //strike_price
 pub price: [u128; LEN],,
 pub expiry_times: [u32; LEN], */
-#[derive(Accounts)]
-#[instruction(option_id: String)]
-pub struct BuyOption<'info> {
-  #[account(mut)]
-  pub opt_ctrt: Account<'info, OptContract>,
-  #[account(seeds = [CONFIG], bump)]
-  pub config: Account<'info, Config>,
-
-  #[account(mut,token::mint = mint, token::authority = user, token::token_program = token_program)]
-  pub ata: InterfaceAccount<'info, TokenAccount>,
-  #[account(mut, seeds = [TOKENVAULT], bump, token::mint = mint, token::token_program = token_program)]
-  pub token_pda: InterfaceAccount<'info, TokenAccount>,
-  #[account(constraint = config.mint == mint.key() @ ErrorCode::TokenMintInvalid)]
-  pub mint: InterfaceAccount<'info, Mint>,
-
-  //#[account(mut, seeds = [USEROPTIONCTRT, user.key().as_ref(), opt_ctrt.key().as_ref()], bump)]
-  //pub user_option: Account<'info, UserOption>,
-  pub user: Signer<'info>,
-  #[account(constraint = config.token_program == token_program.key())]
-  pub token_program: Interface<'info, TokenInterface>,
-} //Box should only be used when you have very large structs that might cause stack overflow issues.
 #[account]
 #[derive(InitSpace)]
 pub struct UserPayment {

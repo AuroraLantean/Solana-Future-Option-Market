@@ -16,24 +16,26 @@ import {
 	getConfig,
 	getOptCtrt,
 	getUserPayment,
+	initAta_mintToken,
 	ll,
+	mintAuthKp,
 	newMint,
 	type OptCtrtT,
 	type TokenBalc,
 	time,
 	tokenProg,
 	type UserPaymentT,
-	usdxDecimals,
+	usdtDecimals,
 	week,
 	zero,
 } from "./utils.ts";
 
+const mintAuth = mintAuthKp.publicKey;
 let config: ConfigT;
 let optCtrt: OptCtrtT;
 let adminPda: AdminPdaT;
 let user1Payment: UserPaymentT;
 let user2Payment: UserPaymentT;
-let user3Payment: UserPaymentT;
 let keypair: Keypair;
 let amount: number;
 let amtInBig: bigint;
@@ -55,8 +57,9 @@ let adminPdaPbk: PublicKey;
 let tokenPdaAtaPbk: PublicKey;
 let user1PaymentPbk: PublicKey;
 let user2PaymentPbk: PublicKey;
-let user3PaymentPbk: PublicKey;
-let usdxMint: PublicKey;
+let adminAta: PublicKey;
+let user1Ata: PublicKey;
+let usdtMint: PublicKey;
 let amtTokPdaAtaAf: TokenBalc | null;
 
 describe("Future Option Main Test", () => {
@@ -71,8 +74,8 @@ describe("Future Option Main Test", () => {
 	const pgid = program.programId;
 	const configPbk = getConfig(pgid, "config");
 
-	const mintAuthKp = new Keypair();
-	const mintAuth = mintAuthKp.publicKey;
+	const adminKp = new Keypair();
+	const admin = adminKp.publicKey;
 	const uniqueKp = new Keypair();
 	const unique = uniqueKp.publicKey;
 	const user1Kp = new Keypair();
@@ -82,26 +85,20 @@ describe("Future Option Main Test", () => {
 
 	before(async () => {
 		await balcSOL(conn, wallet, "wallet");
-		await addSol(conn, mintAuth, "mintAuth");
-		await addSol(conn, user1, "user1");
-		await addSol(conn, user2, "user2");
+		await addSol(conn, mintAuth, "mintAuth", 10);
+		await addSol(conn, user1, "user1", 10);
+		await addSol(conn, user2, "user2", 10);
 	});
 
 	it("init Mint", async () => {
-		usdxMint = await newMint(
-			conn,
-			mintAuthKp,
-			mintAuth,
-			usdxDecimals,
-			"usdxMint",
-		);
+		usdtMint = await newMint(conn, usdtDecimals, "usdtMint");
 	});
 
 	it("init Config", async () => {
 		tx = await program.methods
 			.initConfig([unique, tokenProg])
 			.accounts({
-				mint: usdxMint,
+				mint: usdtMint,
 				//config: configPbk,
 				//signer: admin, // keypair.publicKey,
 			})
@@ -206,7 +203,7 @@ describe("Future Option Main Test", () => {
 			.initAdminPdaAta()
 			.accounts({
 				//adminPda,
-				mint: usdxMint,
+				mint: usdtMint,
 				//config,
 				tokenProgram: tokenProg,
 			})
@@ -217,6 +214,20 @@ describe("Future Option Main Test", () => {
 		amtTokPdaAtaAf = await balcToken(conn, tokenPdaAtaPbk, "tokenPdaAta");
 	});
 
+	it("Init Ata and Mint tokens", async () => {
+		adminAta = await initAta_mintToken(
+			conn,
+			[admin, usdtMint],
+			[usdtDecimals, 9000],
+			["USDT", "Admin"],
+		);
+		user1Ata = await initAta_mintToken(
+			conn,
+			[user1, usdtMint],
+			[usdtDecimals, 9000],
+			["USDT", "User1"],
+		);
+	});
 	it("User1 buys Option Contract", async () => {
 		keypair = user1Kp;
 		/*tx = await program.methods

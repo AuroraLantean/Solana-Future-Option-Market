@@ -4,16 +4,23 @@ import {
 	AccountLayout,
 	createMint,
 	getAssociatedTokenAddressSync,
+	getOrCreateAssociatedTokenAccount,
+	mintTo,
 	TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { type Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { BN } from "bn.js";
 import chalk from "chalk";
 import type { LiteSVM } from "litesvm";
 
-//------------==
+//------------== Project config
 export const tokenProg = TOKEN_PROGRAM_ID; // USDT, USDC
-export const usdxDecimals = 6; // USDT, USDC
+export const usdtDecimals = 6; // USDT
+export const usdcDecimals = 6; // USDC
+
+//------------== Only for Testings
+//this section should be removed from the frontend
+export const mintAuthKp = new Keypair();
 
 //------------==
 export const ll = console.log;
@@ -157,13 +164,13 @@ export const balcToken = async (
 	conn: anchor.web3.Connection,
 	tokenAccount: PublicKey,
 	targetName = "unknown",
+	tokenName = "tokenX",
 ): Promise<TokenBalc | null> => {
 	const acct = await conn.getTokenAccountBalance(tokenAccount);
 	if (acct.value.uiAmount === null) return null;
 	const value = acct.value;
 	ll(
-		`${targetName} token balc:	${value.amount}, decimals: ${value.decimals}, uiAmount:`,
-		value.uiAmount,
+		`${targetName} token balc: ${value.amount} with decimals: ${value.decimals}, uiAmount: ${value.uiAmount} in ${tokenName}`,
 	); //value.uiAmountString
 	return {
 		str: value.amount,
@@ -173,16 +180,14 @@ export const balcToken = async (
 };
 export const newMint = async (
 	conn: anchor.web3.Connection,
-	payerKp: Keypair,
-	mintAuthority: PublicKey,
 	decimals: number,
 	mintName = "unknown",
 ) => {
 	ll("newMint()");
 	const mint = await createMint(
 		conn,
-		payerKp,
-		mintAuthority,
+		mintAuthKp, //payerKp
+		mintAuthKp.publicKey, //mintAuthority,
 		null, //freezeAuthority
 		decimals,
 		undefined,
@@ -191,6 +196,57 @@ export const newMint = async (
 	);
 	ll(mintName, ":", mint.toBase58());
 	return mint;
+};
+export const initAta_mintToken = async (
+	conn: anchor.web3.Connection,
+	toAddr_mint: PublicKey[],
+	decimals_mintUiAmt: number[],
+	tokenName_toAddrName = ["token", "user"],
+) => {
+	const payer = mintAuthKp; //payerKp
+	const mintAuthority = mintAuthKp.publicKey;
+	const toAddr = toAddr_mint[0] as PublicKey;
+	const mint = toAddr_mint[1] as PublicKey;
+	const decimals = decimals_mintUiAmt[0] as number;
+	const mintUiAmt = decimals_mintUiAmt[1] as number;
+	const tokenName = tokenName_toAddrName[0];
+	const toAddrName = tokenName_toAddrName[1];
+
+	const userAtaAccount = await getOrCreateAssociatedTokenAccount(
+		conn,
+		payer,
+		mint,
+		toAddr,
+		false,
+		undefined,
+		undefined,
+		tokenProg,
+	);
+	const userAta = userAtaAccount.address;
+	ll(toAddrName, "ata", userAta.toBase58());
+
+	//for frontend to find the token address
+	const userAta_frontend = getAssociatedTokenAddressSync(
+		mint,
+		toAddr,
+		false, //allowOwnerOffCurve
+		tokenProg,
+	); //in frontend: allowOwnerOffCurve = false
+	ll(toAddrName, "ata_frontend", userAta_frontend.toBase58());
+
+	await mintTo(
+		conn,
+		payer,
+		mint,
+		userAta,
+		mintAuthority,
+		10 ** decimals * mintUiAmt,
+		[],
+		undefined,
+		tokenProg,
+	);
+	await balcToken(conn, userAta, toAddrName, tokenName);
+	return userAta;
 };
 
 export const svmSetTokenAcct = (
