@@ -12,7 +12,6 @@ pub const CONFIG: &[u8; 20] = b"future_option_config";
 pub const ADMINPDA: &[u8; 22] = b"future_option_adminpda";
 pub const ADMINPDAATA: &[u8; 25] = b"future_option_adminpdaata";
 pub const OPTIONCTRT: &[u8; 22] = b"future_option_contract";
-pub const TOKENVAULT: &[u8; 25] = b"future_option_token_vault";
 pub const USERPAYMENT: &[u8; 26] = b"future_option_user_payment";
 
 pub const OPTION_SHARES: u128 = 100;
@@ -112,32 +111,39 @@ pub mod future_option_market {
     config.admin_pda_ata = ctx.accounts.admin_pda_ata.key();
     Ok(())
   }
-  pub fn buy_option(ctx: Context<BuyOption>) -> Result<()> {
+  pub fn buy_option(ctx: Context<BuyOption>, option_id: String, token_amount: u64) -> Result<()> {
     msg!("buy_option()");
     let opt_ctrt = &mut ctx.accounts.opt_ctrt;
     let config = &mut ctx.accounts.config;
     //https://solana.stackexchange.com/questions/15390/transfer-tokens-to-and-from-a-program
     let time = time()?;
+    msg!("buy_option(3)");
+    let user_payment = &mut ctx.accounts.user_payment;
+    msg!("buy_option(4)");
+    user_payment.payments[0] = token_amount;
     Ok(())
   }
+}
+#[account]
+#[derive(InitSpace)]
+pub struct UserPayment {
+  pub payments: [u64; LEN],
 }
 #[derive(Accounts)]
 #[instruction(option_id: String)]
 pub struct BuyOption<'info> {
-  #[account(mut)]
-  pub opt_ctrt: Account<'info, OptContract>,
+  #[account(mut, seeds = [OPTIONCTRT, config.unique.key().as_ref(), option_id.as_bytes()],bump)]
+  pub opt_ctrt: Box<Account<'info, OptContract>>,
   #[account(seeds = [CONFIG], bump)]
   pub config: Account<'info, Config>,
 
-  #[account(mut,token::mint = mint, token::authority = user, token::token_program = token_program)]
-  pub ata: InterfaceAccount<'info, TokenAccount>,
-  #[account(mut, seeds = [TOKENVAULT], bump, token::mint = mint, token::token_program = token_program)]
-  pub token_pda: InterfaceAccount<'info, TokenAccount>,
-  #[account(constraint = config.mint == mint.key() @ ErrorCode::TokenMintInvalid)]
-  pub mint: InterfaceAccount<'info, Mint>,
+  #[account(mut,token::mint = config.mint, token::authority = user, token::token_program = token_program)]
+  pub user_ata: InterfaceAccount<'info, TokenAccount>,
+  #[account(mut, seeds = [ADMINPDAATA], bump, token::mint = config.mint, token::token_program = token_program)]
+  pub admin_pda_ata: InterfaceAccount<'info, TokenAccount>,
+  #[account(mut, seeds = [USERPAYMENT, user.key().as_ref(), opt_ctrt.key().as_ref()], bump)]
+  pub user_payment: Box<Account<'info, UserPayment>>,
 
-  //#[account(mut, seeds = [USEROPTIONCTRT, user.key().as_ref(), opt_ctrt.key().as_ref()], bump)]
-  //pub user_option: Account<'info, UserOption>,
   pub user: Signer<'info>,
   #[account(constraint = config.token_program == token_program.key())]
   pub token_program: Interface<'info, TokenInterface>,
@@ -183,11 +189,7 @@ pub asset_name: String,
 pub strike_prices: [u128; LEN],, //strike_price
 pub price: [u128; LEN],,
 pub expiry_times: [u32; LEN], */
-#[account]
-#[derive(InitSpace)]
-pub struct UserPayment {
-  pub payments: [u128; LEN],
-}
+
 #[derive(Accounts)]
 pub struct InitUserPayment<'info> {
   #[account(init, payer = user, seeds = [USERPAYMENT, user.key().as_ref(), opt_ctrt.key().as_ref()], bump, space = 8 + UserPayment::INIT_SPACE )]

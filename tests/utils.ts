@@ -26,6 +26,7 @@ export const mintAuthKp = new Keypair();
 export const ll = console.log;
 export const bn = (num: number | string) => new BN(num);
 export const zero = bn(0);
+export const ten = bn(10);
 export const day = 86400;
 export const week = 604800;
 
@@ -36,6 +37,8 @@ export const usdtMint = new PublicKey(
 
 //----------------==
 export const bigSol = (amt: number) => BigInt(LAMPORTS_PER_SOL * amt);
+export const bnTok = (uiAmount: number, decimals: number) =>
+	ten.pow(bn(decimals)).mul(bn(uiAmount));
 
 export type ConfigT = {
 	owner: PublicKey;

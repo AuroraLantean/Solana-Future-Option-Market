@@ -10,6 +10,7 @@ import {
 	balcSOL,
 	balcToken,
 	bn,
+	bnTok,
 	type ConfigT,
 	getAdminPda,
 	getAdminPdaata,
@@ -42,6 +43,7 @@ let amtInBig: bigint;
 let amtOutBig: bigint;
 let timeLocal: number;
 let t0: number;
+let amtBn: anchor.BN;
 let strike: anchor.BN;
 let ctrtPrice: anchor.BN;
 let expiry: number;
@@ -54,7 +56,7 @@ let assetName: string;
 let isCallOpt: boolean;
 let optCtrtPbk: PublicKey;
 let adminPdaPbk: PublicKey;
-let tokenPdaAtaPbk: PublicKey;
+let adminPdaAtaPbk: PublicKey;
 let user1PaymentPbk: PublicKey;
 let user2PaymentPbk: PublicKey;
 let adminAta: PublicKey;
@@ -184,8 +186,7 @@ describe("Future Option Main Test", () => {
 		);
 		user1Payment = await program.account.userPayment.fetch(user1PaymentPbk);
 		ll("user1Payment:", JSON.stringify(user1Payment));
-		expect(user1Payment.payments[0]!.eq(zero));
-		//expect(user1Payment.balance.eq(zero));
+		//expect(user1Payment.payments.eq(zero));
 	});
 
 	it("init Admin PDA", async () => {
@@ -210,8 +211,8 @@ describe("Future Option Main Test", () => {
 			.rpc();
 		ll("initTokenPdaAta successful");
 
-		tokenPdaAtaPbk = getAdminPdaata(pgid, "adminPdaAta");
-		amtTokPdaAtaAf = await balcToken(conn, tokenPdaAtaPbk, "tokenPdaAta");
+		adminPdaAtaPbk = getAdminPdaata(pgid, "adminPdaAta");
+		amtTokPdaAtaAf = await balcToken(conn, adminPdaAtaPbk, "tokenPdaAta");
 	});
 
 	it("Init Ata and Mint tokens", async () => {
@@ -230,15 +231,20 @@ describe("Future Option Main Test", () => {
 	});
 	it("User1 buys Option Contract", async () => {
 		keypair = user1Kp;
-		/*tx = await program.methods
-			.buyOption()
+		amtBn = bnTok(1000, usdtDecimals);
+		await program.methods
+			.buyOption(optionId, amtBn)
 			.accounts({
-				optCtrt: optCtrtPbk,
+				//optCtrt: optCtrtPbk,
 				//config: configPbk,
+				userAta: user1Ata,
+				//adminPdaAta: adminPdaAtaPbk,
+				//userPayment: user1PaymentPbk,
+				user: keypair.publicKey,
+				tokenProgram: tokenProg,
 			})
 			.signers([keypair])
 			.rpc();
-		ll("config init tx", tx);*/
 
 		user1PaymentPbk = getUserPayment(
 			keypair.publicKey,
@@ -247,8 +253,12 @@ describe("Future Option Main Test", () => {
 			"userPayment",
 		);
 		user1Payment = await program.account.userPayment.fetch(user1PaymentPbk);
-		ll("user1Payment:", JSON.stringify(user1Payment));
-		expect(user1Payment.payments[0]!.eq(zero));
+		ll(
+			"user1Payment:",
+			JSON.stringify(user1Payment),
+			user1Payment.payments.toString(),
+		);
+		expect(user1Payment.payments[0]!.eq(amtBn));
 		//expect(user1Payment.balance.eq(zero));
 	});
 
