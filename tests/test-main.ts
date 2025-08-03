@@ -8,15 +8,18 @@ import {
 	type AdminPdaT,
 	addSol,
 	balcSOL,
+	balcToken,
 	bn,
 	type ConfigT,
 	getAdminPda,
+	getAdminPdaata,
 	getConfig,
 	getOptCtrt,
 	getUserPayment,
 	ll,
 	newMint,
 	type OptCtrtT,
+	type TokenBalc,
 	time,
 	tokenProg,
 	type UserPaymentT,
@@ -49,10 +52,12 @@ let assetName: string;
 let isCallOpt: boolean;
 let optCtrtPbk: PublicKey;
 let adminPdaPbk: PublicKey;
+let tokenPdaAtaPbk: PublicKey;
 let user1PaymentPbk: PublicKey;
 let user2PaymentPbk: PublicKey;
 let user3PaymentPbk: PublicKey;
 let usdxMint: PublicKey;
+let amtTokPdaAtaAf: TokenBalc | null;
 
 describe("Future Option Main Test", () => {
 	const provider = anchor.AnchorProvider.env();
@@ -194,6 +199,22 @@ describe("Future Option Main Test", () => {
 		adminPda = await program.account.adminPda.fetch(adminPdaPbk);
 		ll("authPda:", JSON.stringify(adminPda));
 		expect(adminPda.solBalc.eq(zero));
+	});
+
+	it("init Admin PDA ATA", async () => {
+		await program.methods
+			.initAdminPdaAta()
+			.accounts({
+				//adminPda,
+				mint: usdxMint,
+				//config,
+				tokenProgram: tokenProg,
+			})
+			.rpc();
+		ll("initTokenPdaAta successful");
+
+		tokenPdaAtaPbk = getAdminPdaata(pgid, "adminPdaAta");
+		amtTokPdaAtaAf = await balcToken(conn, tokenPdaAtaPbk, "tokenPdaAta");
 	});
 
 	it("User1 buys Option Contract", async () => {

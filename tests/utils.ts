@@ -85,6 +85,17 @@ export const getAdminPda = (
 	ll(pdaName, ":", publickey.toBase58());
 	return publickey;
 };
+export const getAdminPdaata = (
+	programId: PublicKey,
+	pdaName: string,
+): PublicKey => {
+	const [publickey, bump] = PublicKey.findProgramAddressSync(
+		[Buffer.from("future_option_adminpdaata")],
+		programId,
+	);
+	ll(pdaName, ":", publickey.toBase58());
+	return publickey;
+};
 export const getUserPayment = (
 	user: PublicKey,
 	opt_ctrt: PublicKey,
@@ -136,6 +147,29 @@ export const balcSOL = async (
 	ll(
 		`${targetName} ${target.toBase58()} SOL balc: ${lamports / LAMPORTS_PER_SOL}`,
 	);
+};
+export type TokenBalc = {
+	str: string;
+	bn: anchor.BN;
+	num: number;
+};
+export const balcToken = async (
+	conn: anchor.web3.Connection,
+	tokenAccount: PublicKey,
+	targetName = "unknown",
+): Promise<TokenBalc | null> => {
+	const acct = await conn.getTokenAccountBalance(tokenAccount);
+	if (acct.value.uiAmount === null) return null;
+	const value = acct.value;
+	ll(
+		`${targetName} token balc:	${value.amount}, decimals: ${value.decimals}, uiAmount:`,
+		value.uiAmount,
+	); //value.uiAmountString
+	return {
+		str: value.amount,
+		bn: bn(value.amount),
+		num: value.uiAmount ?? 0,
+	};
 };
 export const newMint = async (
 	conn: anchor.web3.Connection,

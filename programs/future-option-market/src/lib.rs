@@ -10,6 +10,7 @@ declare_id!("CgZEcSRPh1Ay1EYR4VJPTJRYcRkTDjjZhBAjZ5M8keGp");
 
 pub const CONFIG: &[u8; 20] = b"future_option_config";
 pub const ADMINPDA: &[u8; 22] = b"future_option_adminpda";
+pub const ADMINPDAATA: &[u8; 25] = b"future_option_adminpdaata";
 pub const OPTIONCTRT: &[u8; 22] = b"future_option_contract";
 pub const TOKENVAULT: &[u8; 25] = b"future_option_token_vault";
 pub const USERPAYMENT: &[u8; 26] = b"future_option_user_payment";
@@ -37,6 +38,7 @@ pub mod future_option_market {
     config.admin = ctx.accounts.signer.key();
     //config.mint = ctx.accounts.mint.key();
     config.unique = pubkey[0];
+    config.mint = ctx.accounts.mint.key();
     config.token_program = pubkey[1];
     Ok(())
   }
@@ -91,11 +93,15 @@ pub mod future_option_market {
     opt_ctrt.ctrt_prices = ctrt_prices;
     Ok(())
   }
+  pub fn withdraw_token(_ctx: Context<InitAdminPdaAta>) -> Result<()> {
+    //https://solana.stackexchange.com/questions/1682/how-to-send-spl-tokens-from-pda-account-to-user?rq=1
+    Ok(())
+  }
   pub fn buy_option(ctx: Context<BuyOption>) -> Result<()> {
     msg!("buy_option()");
     let opt_ctrt = &mut ctx.accounts.opt_ctrt;
     let config = &mut ctx.accounts.config;
-
+    //https://solana.stackexchange.com/questions/15390/transfer-tokens-to-and-from-a-program
     let time = time()?;
     Ok(())
   }
@@ -104,9 +110,36 @@ pub mod future_option_market {
     //let user_payment = &mut ctx.accounts.user_payment;
     Ok(())
   }
-  pub fn init_admin_pda(_ctx: Context<InitAdminPda>) -> Result<()> {
+  pub fn init_admin_pda(ctx: Context<InitAdminPda>) -> Result<()> {
+    let config = &mut ctx.accounts.config;
+    config.admin_pda = ctx.accounts.admin_pda.key();
     Ok(())
   }
+  pub fn init_admin_pda_ata(ctx: Context<InitAdminPdaAta>) -> Result<()> {
+    let config = &mut ctx.accounts.config;
+    config.admin_pda_ata = ctx.accounts.admin_pda_ata.key();
+    Ok(())
+  }
+}
+//https://www.anchor-lang.com/docs/references/account-constraints
+#[derive(Accounts)]
+pub struct InitAdminPdaAta<'info> {
+  #[account(init, payer = admin,
+      seeds = [ADMINPDAATA], bump, token::mint = mint,
+      token::authority = admin_pda, token::token_program = token_program
+		)]
+  pub admin_pda_ata: InterfaceAccount<'info, TokenAccount>,
+  #[account(seeds = [ADMINPDA], bump)]
+  pub admin_pda: Account<'info, AdminPda>,
+  #[account(constraint = config.mint == mint.key() @ ErrorCode::TokenMintInvalid)]
+  pub mint: InterfaceAccount<'info, Mint>,
+  #[account(seeds = [CONFIG], bump, has_one = admin @ ErrorCode::OnlyAdmin)]
+  pub config: Account<'info, Config>,
+  #[account(mut)]
+  pub admin: Signer<'info>,
+  #[account(constraint = config.token_program == token_program.key())]
+  pub token_program: Interface<'info, TokenInterface>,
+  pub system_program: Program<'info, System>,
 }
 #[derive(Accounts)]
 pub struct InitAdminPda<'info> {
@@ -234,12 +267,14 @@ pub struct InitConfig<'info> {
 #[account]
 #[derive(InitSpace)]
 pub struct Config {
+  pub unique: Pubkey,
   pub owner: Pubkey,
   pub admin: Pubkey,
-  pub unique: Pubkey,
+  pub admin_pda: Pubkey,
+  pub admin_pda_ata: Pubkey,
+  pub token_program: Pubkey,
   pub balance: u128,
   pub mint: Pubkey,
-  pub token_program: Pubkey,
   pub time: u32,
 }
 
