@@ -28,6 +28,7 @@ fn time() -> Result<u32> {
 
 #[program]
 pub mod future_option_market {
+
   use super::*;
 
   pub fn init_config(ctx: Context<InitConfig>, pubkey: [Pubkey; 2]) -> Result<()> {
@@ -111,15 +112,26 @@ pub mod future_option_market {
     config.admin_pda_ata = ctx.accounts.admin_pda_ata.key();
     Ok(())
   }
-  pub fn buy_option(ctx: Context<BuyOption>, option_id: String, token_amount: u64) -> Result<()> {
+  pub fn buy_option(ctx: Context<BuyOption>, _option_id: String, token_amount: u64) -> Result<()> {
     msg!("buy_option()");
     let opt_ctrt = &mut ctx.accounts.opt_ctrt;
     let config = &mut ctx.accounts.config;
-    //https://solana.stackexchange.com/questions/15390/transfer-tokens-to-and-from-a-program
     let time = time()?;
-    msg!("buy_option(3)");
     let user_payment = &mut ctx.accounts.user_payment;
-    msg!("buy_option(4)");
+
+    //https://www.anchor-lang.com/docs/tokens/basics/transfer-tokens
+    let decimals = ctx.accounts.mint.decimals;
+
+    let cpi_accounts = TransferChecked {
+      mint: ctx.accounts.mint.to_account_info(),
+      from: ctx.accounts.user_ata.to_account_info(),
+      to: ctx.accounts.admin_pda_ata.to_account_info(),
+      authority: ctx.accounts.user.to_account_info(),
+    };
+    let cpi_program = ctx.accounts.token_program.to_account_info();
+    let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
+
+    transfer_checked(cpi_context, token_amount, decimals)?;
     user_payment.payments[0] = token_amount;
     Ok(())
   }
@@ -137,12 +149,14 @@ pub struct BuyOption<'info> {
   #[account(seeds = [CONFIG], bump)]
   pub config: Account<'info, Config>,
 
-  #[account(mut,token::mint = config.mint, token::authority = user, token::token_program = token_program)]
+  #[account(mut,token::mint = mint, token::authority = user, token::token_program = token_program)]
   pub user_ata: InterfaceAccount<'info, TokenAccount>,
-  #[account(mut, seeds = [ADMINPDAATA], bump, token::mint = config.mint, token::token_program = token_program)]
+  #[account(mut, seeds = [ADMINPDAATA], bump, token::mint = mint, token::token_program = token_program)]
   pub admin_pda_ata: InterfaceAccount<'info, TokenAccount>,
   #[account(mut, seeds = [USERPAYMENT, user.key().as_ref(), opt_ctrt.key().as_ref()], bump)]
   pub user_payment: Box<Account<'info, UserPayment>>,
+  #[account(constraint = config.mint == mint.key() @ ErrorCode::TokenMintInvalid)]
+  pub mint: InterfaceAccount<'info, Mint>,
 
   pub user: Signer<'info>,
   #[account(constraint = config.token_program == token_program.key())]

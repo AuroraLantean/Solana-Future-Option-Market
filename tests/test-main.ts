@@ -62,7 +62,9 @@ let user2PaymentPbk: PublicKey;
 let adminAta: PublicKey;
 let user1Ata: PublicKey;
 let usdtMint: PublicKey;
-let amtTokPdaAtaAf: TokenBalc | null;
+let balcAdminPdaAtaAf: TokenBalc | null;
+let user1AtaBalc: TokenBalc | null;
+let user2AtaBalc: TokenBalc | null;
 
 describe("Future Option Main Test", () => {
 	const provider = anchor.AnchorProvider.env();
@@ -212,7 +214,7 @@ describe("Future Option Main Test", () => {
 		ll("initTokenPdaAta successful");
 
 		adminPdaAtaPbk = getAdminPdaata(pgid, "adminPdaAta");
-		amtTokPdaAtaAf = await balcToken(conn, adminPdaAtaPbk, "tokenPdaAta");
+		balcAdminPdaAtaAf = await balcToken(conn, adminPdaAtaPbk, "tokenPdaAta");
 	});
 
 	it("Init Ata and Mint tokens", async () => {
@@ -231,7 +233,7 @@ describe("Future Option Main Test", () => {
 	});
 	it("User1 buys Option Contract", async () => {
 		keypair = user1Kp;
-		amtBn = bnTok(1000, usdtDecimals);
+		amtBn = bnTok(100, usdtDecimals);
 		await program.methods
 			.buyOption(optionId, amtBn)
 			.accounts({
@@ -241,6 +243,7 @@ describe("Future Option Main Test", () => {
 				//adminPdaAta: adminPdaAtaPbk,
 				//userPayment: user1PaymentPbk,
 				user: keypair.publicKey,
+				mint: usdtMint,
 				tokenProgram: tokenProg,
 			})
 			.signers([keypair])
@@ -260,6 +263,9 @@ describe("Future Option Main Test", () => {
 		);
 		expect(user1Payment.payments[0]!.eq(amtBn));
 		//expect(user1Payment.balance.eq(zero));
+
+		user1AtaBalc = await balcToken(conn, user1Ata, "user1AtaBalc");
+		balcAdminPdaAtaAf = await balcToken(conn, adminPdaAtaPbk, "balcTokPdaAta");
 	});
 
 	/*it("time travel", async () => {

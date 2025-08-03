@@ -78,6 +78,18 @@ kill -9 <process id>
 See https://solana.stackexchange.com/questions/1648/error-no-such-file-or-directory-os-error-2-error-from-anchor-test/16564#16564
 
 ## References
+Transfer Tokens from/to PDA-ATA
+Anchor Docs: https://www.anchor-lang.com/docs/tokens/basics/transfer-tokens
+
+TransferChecked: https://docs.rs/anchor-spl/latest/anchor_spl/token/struct.TransferChecked.html#
+
+https://solana.stackexchange.com/questions/9944/need-some-guide-or-snippet-demo-to-transfer-spl-token-out-from-programs-pda-ac/9950#9950
+
+https://solana.stackexchange.com/questions/15390/transfer-tokens-to-and-from-a-program
+https://solana.stackexchange.com/questions/380/what-is-the-difference-between-transfer-and-transferchecked-instruction-from-the?rq=1
+    
+
+    
 Transfer Tokens by Quicknode
 https://www.quicknode.com/guides/solana-development/anchor/transfer-tokens
 
