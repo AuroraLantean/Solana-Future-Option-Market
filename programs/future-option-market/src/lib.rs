@@ -133,6 +133,53 @@ pub mod future_option_market {
     user_payment.payments[0] = token_amount;
     Ok(())
   }
+
+  //https://www.anchor-lang.com/docs/tokens/basics/transfer-tokens
+  pub fn withdraw_token(ctx: Context<WithdrawToken>, amount: u64) -> Result<()> {
+    msg!("withdraw_token()");
+    let decimals = ctx.accounts.mint.decimals;
+
+    let signer_seeds: &[&[&[u8]]] = &[&[ADMINPDA.as_ref(), &[ctx.bumps.admin_pda]]];
+
+    let cpi_accounts = TransferChecked {
+      mint: ctx.accounts.mint.to_account_info(),
+      from: ctx.accounts.admin_pda_ata.to_account_info(),
+      to: ctx.accounts.to_ata.to_account_info(),
+      authority: ctx.accounts.admin_pda.to_account_info(),
+    };
+    let cpi_program = ctx.accounts.token_program.to_account_info();
+
+    let cpi_context = CpiContext::new(cpi_program, cpi_accounts).with_signer(signer_seeds);
+
+    msg!("withdraw_token::transfer_checked()");
+    transfer_checked(cpi_context, amount, decimals)?;
+    Ok(())
+  }
+}
+#[derive(Accounts)]
+pub struct WithdrawToken<'info> {
+  #[account(mut)] //TODO:check signer
+  pub signer: Signer<'info>,
+
+  #[account(mut, constraint = config.mint == mint.key() @ ErrorCode::TokenMintInvalid)]
+  pub mint: InterfaceAccount<'info, Mint>,
+
+  #[account(seeds = [ADMINPDA], bump)]
+  pub admin_pda: Account<'info, AdminPda>,
+
+  #[account(mut, seeds = [ADMINPDAATA], bump, token::mint = mint,
+		token::authority = admin_pda, token::token_program = token_program)]
+  pub admin_pda_ata: InterfaceAccount<'info, TokenAccount>,
+
+  //init_if_needed,  payer = signer,...  will make a new account, which is different from the one in the JS testing environment!
+  #[account(mut, token::mint = mint, token::authority = signer, token::token_program = token_program)]
+  pub to_ata: InterfaceAccount<'info, TokenAccount>,
+
+  #[account(seeds = [CONFIG], bump)]
+  pub config: Account<'info, Config>,
+  #[account(constraint = config.token_program == token_program.key())]
+  pub token_program: Interface<'info, TokenInterface>,
+  pub system_program: Program<'info, System>,
 }
 #[account]
 #[derive(InitSpace)]

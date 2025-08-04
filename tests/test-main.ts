@@ -18,7 +18,6 @@ import {
 	getOptCtrt,
 	getUserPayment,
 	ll,
-	mintAuth,
 	mintAuthKp,
 	mintToken,
 	newMint,
@@ -54,8 +53,8 @@ let optionId: string;
 let assetName: string;
 let isCallOpt: boolean;
 let optCtrtPbk: PublicKey;
+let toAta: PublicKey;
 let adminPdaPbk: PublicKey;
-let adminPdaBump: number;
 let adminPdaAtaPbk: PublicKey;
 let user1PaymentPbk: PublicKey;
 let adminAta: PublicKey;
@@ -63,15 +62,14 @@ let user1Ata: PublicKey;
 let usdtMint: PublicKey;
 let balcAdminPdaAtaAf: TokenBalc | null;
 let user1AtaBalc: TokenBalc | null;
-let adminAtaBalc: TokenBalc | null;
+let signerAtaBalc: TokenBalc | null;
 
 describe("Future Option Main Test", () => {
 	const provider = anchor.AnchorProvider.env();
 	const conn = provider.connection;
 	anchor.setProvider(provider);
 
-	const program = anchor.workspace
-		.FutureOptionMarket as Program<FutureOptionMarket>;
+	const program = anchor.workspace.FutureOptionMarket; // as Program<FutureOptionMarket>
 	const wat = provider.wallet as anchor.Wallet;
 	const wallet = wat.publicKey;
 	const pgid = program.programId;
@@ -206,9 +204,7 @@ describe("Future Option Main Test", () => {
 			.rpc();
 		ll("initAdminPda successful");
 
-		const out = getAdminPda(pgid, "admin pda");
-		adminPdaPbk = out.pubkey;
-		adminPdaBump = out.bump;
+		adminPdaPbk = getAdminPda(pgid, "admin pda");
 		adminPda = await program.account.adminPda.fetch(adminPdaPbk);
 		ll("authPda:", JSON.stringify(adminPda));
 		expect(adminPda.solBalc.eq(zero));
@@ -221,7 +217,6 @@ describe("Future Option Main Test", () => {
 			.accounts({
 				//adminPda,
 				mint: usdtMint,
-				// @ts-expect-error
 				admin: admin,
 				//config,
 				tokenProgram: tokenProg,
@@ -273,6 +268,52 @@ describe("Future Option Main Test", () => {
 
 		user1AtaBalc = await balcToken(conn, user1Ata, "user1AtaBalc");
 		balcAdminPdaAtaAf = await balcToken(conn, adminPdaAtaPbk, "balcTokPdaAta");
+	});
+
+	it("withdraw tokens", async () => {
+		//admin to withdraw tokens
+		keypair = adminKp;
+		toAta = adminAta;
+		amount = 70;
+		amtBn = bnTok(amount, usdtDecimals);
+		tx = await program.methods
+			.withdrawToken(amtBn)
+			.accounts({
+				//config: configPbk,
+				adminPda: adminPdaPbk,
+				adminPdaAta: adminPdaAtaPbk,
+				toAta,
+				signer: keypair.publicKey,
+				mint: usdtMint,
+				tokenProgram: tokenProg,
+			})
+			.signers([keypair])
+			.rpc();
+		console.log(JSON.stringify(tx));
+		balcAdminPdaAtaAf = await balcToken(conn, adminPdaAtaPbk, "balcTokPdaAta");
+		signerAtaBalc = await balcToken(conn, toAta, "adminAta");
+
+		//user1 to withdraw the rest
+		keypair = user1Kp;
+		toAta = user1Ata;
+		amount = 30;
+		amtBn = bnTok(amount, usdtDecimals);
+		tx = await program.methods
+			.withdrawToken(amtBn)
+			.accounts({
+				//config: configPbk,
+				adminPda: adminPdaPbk,
+				adminPdaAta: adminPdaAtaPbk,
+				toAta,
+				signer: keypair.publicKey,
+				mint: usdtMint,
+				tokenProgram: tokenProg,
+			})
+			.signers([keypair])
+			.rpc();
+		console.log(JSON.stringify(tx));
+		balcAdminPdaAtaAf = await balcToken(conn, adminPdaAtaPbk, "balcTokPdaAta");
+		signerAtaBalc = await balcToken(conn, toAta, "user1Ata");
 	});
 
 	/*it("time travel", async () => {

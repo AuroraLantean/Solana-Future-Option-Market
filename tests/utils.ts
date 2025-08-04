@@ -92,7 +92,7 @@ export const getAdminPda = (programId: PublicKey, pdaName: string) => {
 		programId,
 	);
 	ll(pdaName, ":", pubkey.toBase58());
-	return { pubkey, bump };
+	return pubkey;
 };
 export const getAdminPdaata = (
 	programId: PublicKey,
