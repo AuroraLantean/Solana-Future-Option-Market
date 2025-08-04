@@ -1,7 +1,8 @@
 #![allow(unexpected_cfgs)]
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{
-  transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked,
+use anchor_spl::{
+  associated_token::AssociatedToken,
+  token_interface::{transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked},
 };
 //mod err;
 //mod events;
@@ -93,10 +94,7 @@ pub mod future_option_market {
     opt_ctrt.ctrt_prices = ctrt_prices;
     Ok(())
   }
-  pub fn withdraw_token(_ctx: Context<InitAdminPdaAta>) -> Result<()> {
-    //https://solana.stackexchange.com/questions/1682/how-to-send-spl-tokens-from-pda-account-to-user?rq=1
-    Ok(())
-  }
+
   pub fn init_user_payment(_ctx: Context<InitUserPayment>) -> Result<()> {
     msg!("init_user_payment()");
     //let user_payment = &mut ctx.accounts.user_payment;

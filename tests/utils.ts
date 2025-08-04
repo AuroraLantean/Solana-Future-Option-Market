@@ -21,6 +21,8 @@ export const usdcDecimals = 6; // USDC
 //------------== Only for Testings
 //this section should be removed from the frontend
 export const mintAuthKp = new Keypair();
+export const mintAuth = mintAuthKp.publicKey;
+//cannot generate payer here, then import it into tests...
 
 //------------==
 export const ll = console.log;
@@ -84,16 +86,13 @@ export const getOptCtrt = (
 	ll(pdaName, ":", publickey.toBase58());
 	return publickey;
 };
-export const getAdminPda = (
-	programId: PublicKey,
-	pdaName: string,
-): PublicKey => {
-	const [publickey, bump] = PublicKey.findProgramAddressSync(
+export const getAdminPda = (programId: PublicKey, pdaName: string) => {
+	const [pubkey, bump] = PublicKey.findProgramAddressSync(
 		[Buffer.from("future_option_adminpda")],
 		programId,
 	);
-	ll(pdaName, ":", publickey.toBase58());
-	return publickey;
+	ll(pdaName, ":", pubkey.toBase58());
+	return { pubkey, bump };
 };
 export const getAdminPdaata = (
 	programId: PublicKey,
@@ -183,14 +182,18 @@ export const balcToken = async (
 };
 export const newMint = async (
 	conn: anchor.web3.Connection,
+	payerKp: Keypair,
+	//mintAuthority: PublicKey,
 	decimals: number,
 	mintName = "unknown",
 ) => {
 	ll("newMint()");
 	const mint = await createMint(
 		conn,
-		mintAuthKp, //payerKp
-		mintAuthKp.publicKey, //mintAuthority,
+		//mintAuthKp,
+		payerKp,
+		mintAuth,
+		//mintAuthority,
 		null, //freezeAuthority
 		decimals,
 		undefined,
@@ -200,24 +203,26 @@ export const newMint = async (
 	ll(mintName, ":", mint.toBase58());
 	return mint;
 };
-export const initAta_mintToken = async (
+
+// initAta and mint tokens
+export const mintToken = async (
 	conn: anchor.web3.Connection,
-	toAddr_mint: PublicKey[],
-	decimals_mintUiAmt: number[],
-	tokenName_toAddrName = ["token", "user"],
+	mintUiAmt: number,
+	toAddr: PublicKey,
+	mint: PublicKey,
+	names = "token_user",
 ) => {
-	const payer = mintAuthKp; //payerKp
-	const mintAuthority = mintAuthKp.publicKey;
-	const toAddr = toAddr_mint[0] as PublicKey;
-	const mint = toAddr_mint[1] as PublicKey;
-	const decimals = decimals_mintUiAmt[0] as number;
-	const mintUiAmt = decimals_mintUiAmt[1] as number;
-	const tokenName = tokenName_toAddrName[0];
-	const toAddrName = tokenName_toAddrName[1];
+	const payerKp = mintAuthKp;
+	const mintAuthority = mintAuthKp; //MUST BE Keypair!!!
+	const namesArray = names.split(" ");
+	if (namesArray.length < 2) throw new Error("names must have 2 names");
+	const tokenName = namesArray[0] as string;
+	const decimals = usdtDecimals; //from tokenName
+	const toAddrName = namesArray[1] as string;
 
 	const userAtaAccount = await getOrCreateAssociatedTokenAccount(
 		conn,
-		payer,
+		payerKp,
 		mint,
 		toAddr,
 		false,
@@ -239,7 +244,7 @@ export const initAta_mintToken = async (
 
 	await mintTo(
 		conn,
-		payer,
+		payerKp,
 		mint,
 		userAta,
 		mintAuthority,
