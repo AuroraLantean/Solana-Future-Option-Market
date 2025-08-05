@@ -16,6 +16,7 @@ import { loadKeypairSignerFromFile, saveKeypairSignerToFile } from "gill/node";
 import {
 	buildCreateTokenTransaction,
 	buildMintTokensTransaction,
+	buildTransferTokensTransaction,
 	getAssociatedTokenAccountAddress,
 	TOKEN_PROGRAM_ADDRESS,
 } from "gill/programs/token";
@@ -40,6 +41,12 @@ ll("address:", signer.address);
 const tokenProgram = TOKEN_PROGRAM_ADDRESS;
 //const tokenProgram = TOKEN_2022_PROGRAM_ADDRESS;
 const decimals = 9;
+
+const mint = address(Bun.env.WINGLIONMINT);
+const mintToDestination = address(Bun.env.SOLANA_ADDR3);
+const transferToDestination = address(Bun.env.SOLANA_ADDR2);
+ll("args:", mint, mintToDestination);
+
 //bun run index.ts g11
 switch (arg0) {
 	case "0":
@@ -122,9 +129,6 @@ switch (arg0) {
 	case "g13": //mint tokens
 		{
 			const amount = BigInt(900 * 1000000) * BigInt(10 ** decimals);
-			const mint = address(Bun.env.WINGLIONMINT);
-			const mintToDestination = address(Bun.env.SOLANA_ADDR3);
-			ll("args:", mint, mintToDestination);
 
 			const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
 			ll("latestBlockhash:", latestBlockhash);
@@ -145,7 +149,7 @@ switch (arg0) {
 				// obtain from your favorite priority fee api
 				// computeUnitPrice?: number, // no default set
 			});
-			console.log("mintTokensTx:", mintTokensTx);
+			ll("mintTokensTx:", mintTokensTx);
 
 			const signedTransaction =
 				await signTransactionMessageWithSigners(mintTokensTx);
@@ -161,12 +165,61 @@ switch (arg0) {
 			await sendAndConfirmTransaction(signedTransaction);
 		}
 		break;
-	case "g14":
+	case "g14": //send tokens
 		{
+			const senderOrDelegatedAuthority = signer;
+			ll(
+				"transfer from:",
+				senderOrDelegatedAuthority,
+				"to destination:",
+				transferToDestination,
+			);
+
+			const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+			ll("latestBlockhash:", latestBlockhash);
+
+			const transferTokensTx = await buildTransferTokensTransaction({
+				feePayer: signer,
+				latestBlockhash,
+				mint,
+				authority: senderOrDelegatedAuthority,
+				amount: 1000000000, // note: be sure to consider the mint's `decimals` value
+				// if decimals=2 => this will mint 9.00 tokens
+				destination: transferToDestination,
+				// use the correct token program for the `mint`
+				tokenProgram, // default=TOKEN_PROGRAM_ADDRESS
+				// default cu limit set to be optimized, but can be overridden here
+				// computeUnitLimit?: number,
+				// obtain from your favorite priority fee api
+				// computeUnitPrice?: number, // no default set
+			});
+
+			const signedTransaction =
+				await signTransactionMessageWithSigners(transferTokensTx);
+			ll("signedTransaction:", signedTransaction);
+
+			const signature = getSignatureFromTransaction(signedTransaction);
+
+			ll("signature:", signature);
+			const link = getExplorerLink({
+				cluster,
+				transaction: signature,
+			});
+			ll("Explorer Link of the new mint:", link);
+			await sendAndConfirmTransaction(signedTransaction);
 		}
 		break;
-	case "g15":
+	case "g15": //get token balance
 		{
+			const target = transferToDestination;
+			const ata = await getAssociatedTokenAccountAddress(
+				mint,
+				target,
+				tokenProgram,
+			);
+			const { value: balc } = await rpc.getTokenAccountBalance(ata).send();
+
+			ll("token balance at:", mintToDestination, balc);
 		}
 		break;
 	default:
