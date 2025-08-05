@@ -119,8 +119,46 @@ switch (arg0) {
 			await sendAndConfirmTransaction(signedTransaction);
 		}
 		break;
-	case "g13":
+	case "g13": //mint tokens
 		{
+			const amount = BigInt(900 * 1000000) * BigInt(10 ** decimals);
+			const mint = address(Bun.env.WINGLIONMINT);
+			const mintToDestination = address(Bun.env.SOLANA_ADDR3);
+			ll("args:", mint, mintToDestination);
+
+			const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+			ll("latestBlockhash:", latestBlockhash);
+
+			const mintTokensTx = await buildMintTokensTransaction({
+				feePayer: signer,
+				latestBlockhash,
+				mint,
+				mintAuthority: signer,
+				amount, // note: be sure to consider the mint's `decimals` value
+				// if decimals=2 => this will mint 20.00 tokens
+				// if decimals=4 => this will mint 0.200 tokens
+				destination: mintToDestination,
+				// use the correct token program for the `mint`
+				tokenProgram, // default=TOKEN_PROGRAM_ADDRESS
+				// default cu limit set to be optimized, but can be overridden here
+				// computeUnitLimit?: number,
+				// obtain from your favorite priority fee api
+				// computeUnitPrice?: number, // no default set
+			});
+			console.log("mintTokensTx:", mintTokensTx);
+
+			const signedTransaction =
+				await signTransactionMessageWithSigners(mintTokensTx);
+			ll("signedTransaction:", signedTransaction);
+
+			const signature = getSignatureFromTransaction(signedTransaction);
+			ll("signature:", signature);
+			const link = getExplorerLink({
+				cluster,
+				transaction: signature,
+			});
+			ll("Explorer Link of the new mint:", link);
+			await sendAndConfirmTransaction(signedTransaction);
 		}
 		break;
 	case "g14":
