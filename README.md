@@ -60,6 +60,12 @@ When the future ends, the admin has to settle the future with an outcome
 
 Users can claim their payout
 
+## Generate and Mint Tokens
+Make a token image
+https://deepai.org/machine-learning-model/fantasy-world-generator
+
+Upload the image to a cloud service like https://app.pinata.cloud/
+
 ## Error
 ### anchor test not wait for solana-test-validator #3624
 https://github.com/solana-foundation/anchor/issues/3624

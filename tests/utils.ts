@@ -32,6 +32,8 @@ export const ten = bn(10);
 export const day = 86400;
 export const week = 604800;
 
+//export const big = (n: BigNumber.Value) => new BigNumber(n);
+//export const big0 = big(0);
 //For frontend, Not for Anchor tests!
 export const usdtMint = new PublicKey(
 	"Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
