@@ -11,6 +11,7 @@ declare module "bun" {
 		SOLANA_ADDR2: string;
 		SOLANA_ADDR3: string;
 		WINGLIONMINT: string;
+		LIONWITHWINGS_URI: string;
 	}
 }
 export const privkey = Bun.env.PRIVKEY;

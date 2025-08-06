@@ -55,7 +55,7 @@ export const makeMintViaGill = async (
 			isMutable: true, // if the `updateAuthority` can change this metadata in the future
 			name: "Lion with wings",
 			symbol: "LWW",
-			uri: "https://peach-tough-crayfish-991.mypinata.cloud/ipfs/bafkreiagrzfdzrb7gykfhimmqsrrqxe7z47ql4howvbdi45r74g634rh2i",
+			uri: Bun.env.LIONWITHWINGS_URI,
 		},
 		// updateAuthority, // default=same as the `feePayer`
 		decimals, // default=9,

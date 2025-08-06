@@ -61,10 +61,59 @@ When the future ends, the admin has to settle the future with an outcome
 Users can claim their payout
 
 ## Generate and Mint Tokens
+## Launch Tokens
+### Make Twitter/Telegram/Website
+
+### Concept
+Search in Dextools.io to see if the token name already exists
+
+### Find/Generate Token
+- Find token addresses at official token website, Dex platforms like https://dexscreener.com/, or  Verified token lists from Jupiter
+
+- Generate a new token
+Make decimals = 6, square image, supply = 1B
+
+Use OrionTools.io or Raydium Launchpad
 Make a token image
 https://deepai.org/machine-learning-model/fantasy-world-generator
 
 Upload the image to a cloud service like https://app.pinata.cloud/
+
+### Revoke Token Authorities
+Revoke Freeze for a liquidity pool
+Revoke Mint for legitimate tokens
+
+
+### Add Liquidity Pool
+https://docs.raydium.io/raydium/protocol/developers/addresses
+
+Use Raydium > Crate Pool: paste your Raydium market id. https://raydium.io/liquidity-pools/
+
+Smithii
+https://tools.smithii.io/revoke-freeze/solana
+
+If you lose your LP NFT, you lose access to the liquidity
+
+Liquidity Types
+- Concentrated Liquidity CLMM with risk of prices moving out side of expected range, and ending up with only one token in your pool => no exchange fee
+- AMM v4
+
+Base token amount(in your new token) = >95% of total supply for anonimous token owners
+
+Quote token amount(in SOL) = the above base token amount worth in SOL. like 10 SOL
+
+Remove liquidity from a pool: at DexScreener.com/your token, copy Pair address(pool address). Go to Remove Liqudity and ender your pool address
+
+### Burn Liquidity Pool Tokens(LP Tokens)
+Burn LP tokens to lock the liquidity pool so other people know you cannot pull those tokens and quote tokens out.
+Also see sol-incinerator.com
+
+### Update DexTools.io and DexScreener.com
+
+### Manage Community
+
+### Marketing
+
 
 ## Error
 ### anchor test not wait for solana-test-validator #3624

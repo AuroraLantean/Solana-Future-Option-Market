@@ -11,6 +11,7 @@ import {
 	sendTokenViaGill,
 	tokenBalcViaGill,
 } from "./backend/gill.ts";
+import { getResponse } from "./backend/raydium.ts";
 import { ll, usdtMint } from "./tests/utils.ts";
 
 const args = Bun.argv;
@@ -26,12 +27,17 @@ ll("address:", signer.address);
 
 const tokenProgram = TOKEN_PROGRAM_ADDRESS;
 //const tokenProgram = TOKEN_2022_PROGRAM_ADDRESS;
-const decimals = 9;
+const decimals = 6; //most tokens have 6
 
 const mint = address(Bun.env.WINGLIONMINT);
-const mintToDestination = address(Bun.env.SOLANA_ADDR3);
+const addr3 = address(Bun.env.SOLANA_ADDR3);
 const addr2 = address(Bun.env.SOLANA_ADDR2);
-ll("args:", mint, mintToDestination);
+ll("mint:", mint);
+ll("addr2:", addr2);
+ll("addr3:", addr3);
+const RaydiumMainBase = "https://api-v3.raydium.io";
+const RaydiumDevBase = "https://api-v3-devnet.raydium.io";
+const ApiBase = RaydiumDevBase;
 
 //bun run index.ts g11
 switch (arg0) {
@@ -88,7 +94,7 @@ switch (arg0) {
 				mint,
 				amountUI,
 				decimals,
-				mintToDestination,
+				addr3,
 				tokenProgram,
 			);
 		}
@@ -114,6 +120,34 @@ switch (arg0) {
 		{
 			const target = addr2;
 			await tokenBalcViaGill(customRpcURL, target, mint, tokenProgram);
+		}
+		break;
+	case "a10": // Revoke Authority
+		{
+			//spl-token authorize <tokenMint> mint --disable
+			//spl-token authorize <tokenMint> freeze --disable
+			//spl-token display {your token address}
+		}
+		break;
+
+	case "r13": //info
+		{
+			const endpoint = `${ApiBase}/main/info`;
+			await getResponse(endpoint);
+		}
+		break;
+	case "r17": //clmm-config
+		{
+			const endpoint = `${ApiBase}/main/clmm-config`;
+			await getResponse(endpoint);
+		}
+		break;
+	case "r19": //
+		{
+		}
+		break;
+	case "r20": //
+		{
 		}
 		break;
 	default: //bun run index.ts g15
