@@ -10,6 +10,15 @@ import { PublicKey } from "@solana/web3.js";
 
 const ll = console.log;
 
+export type PoolInfoList = {
+	id: string;
+	success: boolean;
+	data: {
+		count: number;
+		data: [];
+		hasNextPage: boolean;
+	};
+};
 export const getResponse = async (endpoint: string) => {
 	ll("endpoint:", endpoint);
 	const response = await fetch(endpoint);

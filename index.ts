@@ -11,7 +11,7 @@ import {
 	sendTokenViaGill,
 	tokenBalcViaGill,
 } from "./backend/gill.ts";
-import { getResponse } from "./backend/raydium.ts";
+import { getResponse, type PoolInfoList } from "./backend/raydium.ts";
 import { ll, usdtMint } from "./tests/utils.ts";
 
 const args = Bun.argv;
@@ -37,9 +37,9 @@ ll("addr2:", addr2);
 ll("addr3:", addr3);
 const RaydiumMainBase = "https://api-v3.raydium.io";
 const RaydiumDevBase = "https://api-v3-devnet.raydium.io";
-const ApiBase = RaydiumDevBase;
+const ApiBase = RaydiumMainBase;
 
-//bun run index.ts g11
+//bun run index.ts arg0
 switch (arg0) {
 	case "0":
 		{
@@ -142,12 +142,31 @@ switch (arg0) {
 			await getResponse(endpoint);
 		}
 		break;
-	case "r19": //
+	case "r20": //mint list
 		{
+			const endpoint = `${ApiBase}/mint/list`;
+			const res = await getResponse(endpoint);
 		}
 		break;
-	case "r20": //
+	case "r21": //mint by mintId
 		{
+			const mintId = "2FPyTwcZLUg1MDrwsyoP4D6s1tM7hAkHYRjkNb5w6Pxk"; //wETH
+			const endpoint = `${ApiBase}/mint/ids?mints=${mintId}`;
+			const res = await getResponse(endpoint);
+		}
+		break;
+	case "r24": //pool list
+		{
+			const endpoint = `${ApiBase}/pools/info/list?poolType=concentrated&poolSortField=volume24h&sortType=desc&pageSize=10&page=1`;
+			const res = await getResponse(endpoint);
+			ll((res as PoolInfoList).data.data);
+		}
+		break;
+	case "r25": // pool by id
+		{
+			const poolId = "FXAXqgjNK6JVzVV2frumKTEuxC8hTEUhVTJTRhMMwLmM";
+			const endpoint = `${ApiBase}/pools/info/ids?ids=${poolId}`;
+			const res = await getResponse(endpoint);
 		}
 		break;
 	default: //bun run index.ts g15

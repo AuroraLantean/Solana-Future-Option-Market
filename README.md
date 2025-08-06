@@ -83,14 +83,18 @@ Upload the image to a cloud service like https://app.pinata.cloud/
 Revoke Freeze for a liquidity pool
 Revoke Mint for legitimate tokens
 
+https://tools.smithii.io/revoke-freeze/solana
+
 
 ### Add Liquidity Pool
 https://docs.raydium.io/raydium/protocol/developers/addresses
 
-Use Raydium > Crate Pool: paste your Raydium market id. https://raydium.io/liquidity-pools/
+- Raydium Website > Crate Pool: paste your Raydium market id. https://raydium.io/liquidity-pools/
 
-Smithii
-https://tools.smithii.io/revoke-freeze/solana
+- Smithii
+https://tools.smithii.io/liquidity-pool/solana
+
+https://www.youtube.com/watch?v=7bNRzAq9Pjs&list=PLFjyohaQTrofpQtldTBzVsCdTruIn0OlL&index=3
 
 If you lose your LP NFT, you lose access to the liquidity
 
