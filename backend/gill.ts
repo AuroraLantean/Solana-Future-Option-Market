@@ -1,28 +1,24 @@
 import {
 	type Address,
-	address,
 	createSolanaClient,
-	createTransaction,
 	generateExtractableKeyPairSigner,
 	generateKeyPairSigner,
 	getExplorerLink,
 	getSignatureFromTransaction,
 	type KeyPairSigner,
-	type Rpc,
 	type SolanaClusterMoniker,
 	signTransactionMessageWithSigners,
 	type TransactionSigner,
 } from "gill";
-import { loadKeypairSignerFromFile, saveKeypairSignerToFile } from "gill/node";
+import { saveKeypairSignerToFile } from "gill/node";
 import {
 	buildCreateTokenTransaction,
 	buildMintTokensTransaction,
 	buildTransferTokensTransaction,
 	getAssociatedTokenAccountAddress,
-	TOKEN_PROGRAM_ADDRESS,
 } from "gill/programs/token";
 
-import { ll } from "./utils.ts";
+export const ll = console.log;
 
 export const newKeypair = async (path: string) => {
 	const extractableSigner: KeyPairSigner =

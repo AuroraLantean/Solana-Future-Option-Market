@@ -10,7 +10,7 @@ import {
 	newKeypair,
 	sendTokenViaGill,
 	tokenBalcViaGill,
-} from "./tests/gill.ts";
+} from "./backend/gill.ts";
 import { ll, usdtMint } from "./tests/utils.ts";
 
 const args = Bun.argv;
