@@ -134,10 +134,55 @@ export class ArbBot {
 		console.log(
 			`🤖 Initiating arb bot for wallet: ${this.wallet.publicKey.toBase58()}.`,
 		);
-		//await this.refreshBalances();
+		await this.refreshBalances();
 		console.log(
 			`🏦 Current balances:\nSOL: ${this.solBalance / LAMPORTS_PER_SOL},\nUSDC: ${this.usdcBalance}`,
 		);
 		//this.initiatePriceWatch();
+	}
+
+	private async refreshBalances(): Promise<void> {
+		try {
+			const results = await Promise.allSettled([
+				this.solanaConnection.getBalance(this.wallet.publicKey),
+				this.solanaConnection.getTokenAccountBalance(this.usdcTokenAccount),
+			]);
+
+			const solBalanceResult = results[0];
+			const usdcBalanceResult = results[1];
+
+			if (solBalanceResult.status === "fulfilled") {
+				this.solBalance = solBalanceResult.value;
+			} else {
+				console.error("Error fetching SOL balance:", solBalanceResult.reason);
+			}
+
+			if (usdcBalanceResult.status === "fulfilled") {
+				this.usdcBalance = usdcBalanceResult.value.value.uiAmount ?? 0;
+			} else {
+				this.usdcBalance = 0;
+			}
+
+			if (this.solBalance < LAMPORTS_PER_SOL / 100) {
+				this.terminateSession("Low SOL balance.");
+			}
+		} catch (error) {
+			console.error("Unexpected error during balance refresh:", error);
+		}
+	}
+
+	private terminateSession(reason: string): void {
+		console.warn(`❌ Terminating bot...${reason}`);
+		console.log(
+			`Current balances:\nSOL: ${this.solBalance / LAMPORTS_PER_SOL},\nUSDC: ${this.usdcBalance}`,
+		);
+		if (this.priceWatchIntervalId) {
+			clearInterval(this.priceWatchIntervalId);
+			this.priceWatchIntervalId = undefined; // Clear the reference to the interval
+		}
+		setTimeout(() => {
+			console.log("Bot has been terminated.");
+			process.exit(1);
+		}, 1000);
 	}
 }
