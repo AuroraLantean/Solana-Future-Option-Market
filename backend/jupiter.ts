@@ -17,7 +17,7 @@ import {
 	PublicKey,
 	type SignatureStatus,
 	type TransactionConfirmationStatus,
-	type TransactionInstruction,
+	TransactionInstruction,
 	TransactionMessage,
 	type TransactionSignature,
 	VersionedTransaction,
@@ -312,6 +312,153 @@ export class ArbBot {
 			throw new Error("Unable to execute swap");
 		} finally {
 			this.waitingForConfirmation = false;
+		}
+	}
+
+	private async confirmTransaction(
+		connection: Connection,
+		signature: TransactionSignature,
+		desiredConfirmationStatus: TransactionConfirmationStatus = "confirmed",
+		timeout: number = 30000,
+		pollInterval: number = 1000,
+		searchTransactionHistory: boolean = false,
+	): Promise<SignatureStatus> {
+		const start = Date.now();
+
+		while (Date.now() - start < timeout) {
+			const { value: statuses } = await connection.getSignatureStatuses(
+				[signature],
+				{ searchTransactionHistory },
+			);
+
+			if (!statuses || statuses.length === 0) {
+				throw new Error("Failed to get signature status");
+			}
+
+			const status = statuses[0];
+
+			if (status === null) {
+				await new Promise((resolve) => setTimeout(resolve, pollInterval));
+				continue;
+			}
+
+			if (status?.err) {
+				throw new Error(`Transaction failed: ${JSON.stringify(status.err)}`);
+			}
+
+			if (
+				status?.confirmationStatus &&
+				status.confirmationStatus === desiredConfirmationStatus
+			) {
+				return status;
+			}
+
+			if (status?.confirmationStatus === "finalized") {
+				return status;
+			}
+
+			await new Promise((resolve) => setTimeout(resolve, pollInterval));
+		}
+
+		throw new Error(`Transaction confirmation timeout after ${timeout}ms`);
+	}
+
+	private instructionDataToTransactionInstruction(
+		instruction: Instruction | undefined,
+	) {
+		if (instruction === null || instruction === undefined) return null;
+		return new TransactionInstruction({
+			programId: new PublicKey(instruction.programId),
+			keys: instruction.accounts.map((key: AccountMeta) => ({
+				pubkey: new PublicKey(key.pubkey),
+				isSigner: key.isSigner,
+				isWritable: key.isWritable,
+			})),
+			data: Buffer.from(instruction.data, "base64"),
+		});
+	}
+
+	private async getAdressLookupTableAccounts(
+		keys: string[],
+		connection: Connection,
+	): Promise<AddressLookupTableAccount[]> {
+		const addressLookupTableAccountInfos =
+			await connection.getMultipleAccountsInfo(
+				keys.map((key) => new PublicKey(key)),
+			);
+
+		return addressLookupTableAccountInfos.reduce((acc, accountInfo, index) => {
+			const addressLookupTableAddress = keys[index] as string;
+			if (accountInfo) {
+				const addressLookupTableAccount = new AddressLookupTableAccount({
+					key: new PublicKey(addressLookupTableAddress),
+					state: AddressLookupTableAccount.deserialize(accountInfo.data),
+				});
+				acc.push(addressLookupTableAccount);
+			}
+
+			return acc;
+		}, [] as AddressLookupTableAccount[]);
+	}
+
+	private async postTransactionProcessing(
+		quote: QuoteResponse,
+		txid: string,
+	): Promise<void> {
+		const { inputMint, inAmount, outputMint, outAmount } = quote;
+		await this.updateNextTrade(quote);
+		await this.refreshBalances();
+		await this.logSwap({
+			inputToken: inputMint,
+			inAmount,
+			outputToken: outputMint,
+			outAmount,
+			txId: txid,
+			timestamp: new Date().toISOString(),
+		});
+	}
+
+	private async updateNextTrade(lastTrade: QuoteResponse): Promise<void> {
+		const priceChange = this.targetGainPercentage / 100;
+		this.nextTrade = {
+			inputMint: this.nextTrade.outputMint,
+			outputMint: this.nextTrade.inputMint,
+			amount: parseInt(lastTrade.outAmount),
+			nextTradeThreshold: parseInt(lastTrade.inAmount) * (1 + priceChange),
+		};
+	}
+
+	private async logSwap(args: LogSwapArgs): Promise<void> {
+		const { inputToken, inAmount, outputToken, outAmount, txId, timestamp } =
+			args;
+		const logEntry = {
+			inputToken,
+			inAmount,
+			outputToken,
+			outAmount,
+			txId,
+			timestamp,
+		};
+
+		const filePath = "./trades.json";
+		const logFile = Bun.file(filePath);
+		const exists = await logFile.exists(); // false
+		const content = JSON.stringify([logEntry], null, 2);
+
+		try {
+			if (!exists) {
+				await Bun.write(filePath, content);
+			} else {
+				appendFile(filePath, content, (err) => {
+					if (err) throw err;
+					console.log("The content was appended to file!");
+				});
+			}
+			console.log(
+				`✅ Logged swap: ${inAmount} ${inputToken} -> ${outAmount} ${outputToken},\n  TX: ${txId}}`,
+			);
+		} catch (error) {
+			console.error("Error logging swap:", error);
 		}
 	}
 }
