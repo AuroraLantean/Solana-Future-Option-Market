@@ -17,7 +17,7 @@ import {
 	PublicKey,
 	type SignatureStatus,
 	type TransactionConfirmationStatus,
-	TransactionInstruction,
+	type TransactionInstruction,
 	TransactionMessage,
 	type TransactionSignature,
 	VersionedTransaction,
@@ -138,7 +138,7 @@ export class ArbBot {
 		console.log(
 			`🏦 Current balances:\nSOL: ${this.solBalance / LAMPORTS_PER_SOL},\nUSDC: ${this.usdcBalance}`,
 		);
-		//this.initiatePriceWatch();
+		this.initiatePriceWatch();
 	}
 
 	private async refreshBalances(): Promise<void> {
@@ -184,5 +184,134 @@ export class ArbBot {
 			console.log("Bot has been terminated.");
 			process.exit(1);
 		}, 1000);
+	}
+
+	private initiatePriceWatch(): void {
+		this.priceWatchIntervalId = setInterval(async () => {
+			const currentTime = Date.now();
+			if (currentTime - this.lastCheck >= this.checkInterval) {
+				this.lastCheck = currentTime;
+				try {
+					if (this.waitingForConfirmation) {
+						console.log("Waiting for previous transaction to confirm...");
+						return;
+					}
+					const quote = await this.getQuote(this.nextTrade);
+					this.evaluateQuoteAndSwap(quote);
+				} catch (error) {
+					console.error("Error getting quote:", error);
+				}
+			}
+		}, this.checkInterval);
+	}
+
+	private async getQuote(
+		quoteRequest: QuoteGetRequest,
+	): Promise<QuoteResponse> {
+		try {
+			const quote: QuoteResponse | null =
+				await this.jupiterApi.quoteGet(quoteRequest);
+			if (!quote) {
+				throw new Error("No quote found");
+			}
+			return quote;
+		} catch (error) {
+			if (error instanceof ResponseError) {
+				console.log(await error.response.json());
+			} else {
+				console.error(error);
+			}
+			throw new Error("Unable to find quote");
+		}
+	}
+
+	private async evaluateQuoteAndSwap(quote: QuoteResponse): Promise<void> {
+		const difference =
+			(parseInt(quote.outAmount) - this.nextTrade.nextTradeThreshold) /
+			this.nextTrade.nextTradeThreshold;
+		console.log(
+			`📈 Current price: ${quote.outAmount} is ${
+				difference > 0 ? "higher" : "lower"
+			} than the next trade threshold: ${this.nextTrade.nextTradeThreshold} by ${Math.abs(difference * 100).toFixed(2)}%.`,
+		);
+		if (parseInt(quote.outAmount) > this.nextTrade.nextTradeThreshold) {
+			try {
+				this.waitingForConfirmation = true;
+				await this.executeSwap(quote);
+			} catch (error) {
+				console.error("Error executing swap:", error);
+			}
+		}
+	}
+
+	private async executeSwap(route: QuoteResponse): Promise<void> {
+		try {
+			const {
+				computeBudgetInstructions,
+				setupInstructions,
+				swapInstruction,
+				cleanupInstruction,
+				addressLookupTableAddresses,
+			} = await this.jupiterApi.swapInstructionsPost({
+				swapRequest: {
+					quoteResponse: route,
+					userPublicKey: this.wallet.publicKey.toBase58(),
+					//prioritizationFeeLamports: "auto",
+				},
+			});
+
+			const instructions: TransactionInstruction[] = [
+				...computeBudgetInstructions.map(
+					this.instructionDataToTransactionInstruction,
+				),
+				...setupInstructions.map(this.instructionDataToTransactionInstruction),
+				this.instructionDataToTransactionInstruction(swapInstruction),
+				this.instructionDataToTransactionInstruction(cleanupInstruction),
+			].filter((ix) => ix !== null) as TransactionInstruction[];
+
+			const addressLookupTableAccounts =
+				await this.getAdressLookupTableAccounts(
+					addressLookupTableAddresses,
+					this.solanaConnection,
+				);
+
+			const { blockhash, lastValidBlockHeight } =
+				await this.solanaConnection.getLatestBlockhash();
+
+			const messageV0 = new TransactionMessage({
+				payerKey: this.wallet.publicKey,
+				recentBlockhash: blockhash,
+				instructions,
+			}).compileToV0Message(addressLookupTableAccounts);
+
+			const transaction = new VersionedTransaction(messageV0);
+			transaction.sign([this.wallet]);
+
+			const rawTransaction = transaction.serialize();
+			const txid = await this.solanaConnection.sendRawTransaction(
+				rawTransaction,
+				{
+					skipPreflight: true,
+					maxRetries: 2,
+				},
+			);
+			const confirmation = await this.confirmTransaction(
+				this.solanaConnection,
+				txid,
+			);
+			if (confirmation.err) {
+				throw new Error("Transaction failed");
+			}
+			await this.postTransactionProcessing(route, txid);
+		} catch (error) {
+			if (error instanceof ResponseError) {
+				console.log(await error.response.json());
+			} else {
+				console.error(error);
+			}
+			throw new Error("Unable to execute swap");
+		} finally {
+			this.waitingForConfirmation = false;
+		}
 	}
 }
