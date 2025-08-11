@@ -73,7 +73,11 @@ Search in Dextools.io to see if the token name already exists
 - Generate a new token
 Make decimals = 6, square image, supply = 1B
 
-Use OrionTools.io or Raydium Launchpad
+Websites to launch new tokens:
+- OrionTools.io
+- Orca Wavebreak https://www.orca.so/tokens/launch
+- Raydium Launchpad https://raydium.io/launchpad/
+
 Make a token image
 https://deepai.org/machine-learning-model/fantasy-world-generator
 
@@ -117,6 +121,12 @@ Also see sol-incinerator.com
 ### Manage Community
 
 ### Marketing
+
+### Make a Trading Bot with Jupiter Metis Swap API
+Login to Quicknode and go to Marketplace, buy Metis Jupiter Swap API
+https://www.quicknode.com/guides/solana-development/3rd-party-integrations/jupiter-api-trading-bot
+
+Or use the public API at https://www.jupiterapi.com/?utm_source=guides-jup-trading-bot
 
 
 ## Error

@@ -1,6 +1,6 @@
 import { getMint } from "@solana/spl-token";
-import { Connection } from "@solana/web3.js";
-import { address, type SolanaClusterMoniker } from "gill";
+import { Connection, clusterApiUrl } from "@solana/web3.js";
+import { address, LAMPORTS_PER_SOL, type SolanaClusterMoniker } from "gill";
 import { loadKeypairSignerFromFile } from "gill/node";
 import { TOKEN_PROGRAM_ADDRESS } from "gill/programs/token";
 import {
@@ -11,6 +11,7 @@ import {
 	sendTokenViaGill,
 	tokenBalcViaGill,
 } from "./backend/gill.ts";
+import { ArbBot, SwapToken } from "./backend/jupiter.ts";
 import { getResponse, type PoolInfoList } from "./backend/raydium.ts";
 import { ll, usdtMint } from "./tests/utils.ts";
 
@@ -130,43 +131,67 @@ switch (arg0) {
 		}
 		break;
 
-	case "r13": //info
+	case "raydium13": //info
 		{
 			const endpoint = `${ApiBase}/main/info`;
 			await getResponse(endpoint);
 		}
 		break;
-	case "r17": //clmm-config
+	case "raydium17": //clmm-config
 		{
 			const endpoint = `${ApiBase}/main/clmm-config`;
 			await getResponse(endpoint);
 		}
 		break;
-	case "r20": //mint list
+	case "raydium20": //mint list
 		{
 			const endpoint = `${ApiBase}/mint/list`;
 			const res = await getResponse(endpoint);
 		}
 		break;
-	case "r21": //mint by mintId
+	case "raydium21": //mint by mintId
 		{
 			const mintId = "2FPyTwcZLUg1MDrwsyoP4D6s1tM7hAkHYRjkNb5w6Pxk"; //wETH
 			const endpoint = `${ApiBase}/mint/ids?mints=${mintId}`;
 			const res = await getResponse(endpoint);
 		}
 		break;
-	case "r24": //pool list
+	case "raydium24": //pool list
 		{
 			const endpoint = `${ApiBase}/pools/info/list?poolType=concentrated&poolSortField=volume24h&sortType=desc&pageSize=10&page=1`;
 			const res = await getResponse(endpoint);
 			ll((res as PoolInfoList).data.data);
 		}
 		break;
-	case "r25": // pool by id
+	case "raydium25": // pool by id
 		{
 			const poolId = "FXAXqgjNK6JVzVV2frumKTEuxC8hTEUhVTJTRhMMwLmM";
 			const endpoint = `${ApiBase}/pools/info/ids?ids=${poolId}`;
 			const res = await getResponse(endpoint);
+		}
+		break;
+	case "bot1": // Quickbook Metis trading API
+		{
+			const defaultConfig = {
+				solanaEndpoint: clusterApiUrl("mainnet-beta"),
+				jupiter: "https://quote-api.jup.ag/v6",
+			};
+			const decodedSecretKey = Uint8Array.from(
+				JSON.parse(process.env.SECRET_KEY ?? ""),
+			);
+
+			const bot = new ArbBot({
+				solanaEndpoint:
+					process.env.SOLANA_ENDPOINT ?? defaultConfig.solanaEndpoint,
+				metisEndpoint: process.env.METIS_ENDPOINT ?? defaultConfig.jupiter,
+				secretKey: decodedSecretKey,
+				firstTradePrice: 0.11 * LAMPORTS_PER_SOL,
+				targetGainPercentage: 1.5,
+				initialInputToken: SwapToken.USDC,
+				initialInputAmount: 10_000_000,
+			});
+
+			await bot.init();
 		}
 		break;
 	default: //bun run index.ts g15
