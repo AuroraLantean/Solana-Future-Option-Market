@@ -12,7 +12,11 @@ import {
 	tokenBalcViaGill,
 } from "./backend/gill.ts";
 import { ArbBot, SwapToken } from "./backend/jupiter.ts";
-import { getResponse, type PoolInfoList } from "./backend/raydium.ts";
+import {
+	getResponse,
+	type PoolInfoList,
+	radiumSwap,
+} from "./backend/raydium.ts";
 import { ll, usdtMint } from "./tests/utils.ts";
 
 const args = Bun.argv;
@@ -192,6 +196,14 @@ switch (arg0) {
 			});
 
 			await bot.init();
+		}
+		break;
+	case "radium-swap": //
+		{
+			radiumSwap().catch((error) => {
+				console.error("An error occurred during the swap process:");
+				console.error(error);
+			});
 		}
 		break;
 	default: //bun run index.ts g15

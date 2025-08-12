@@ -288,7 +288,7 @@ describe("Future Option Main Test", () => {
 			})
 			.signers([keypair])
 			.rpc();
-		console.log(JSON.stringify(tx));
+		ll(JSON.stringify(tx));
 		balcAdminPdaAtaAf = await balcToken(conn, adminPdaAtaPbk, "balcTokPdaAta");
 		signerAtaBalc = await balcToken(conn, toAta, "adminAta");
 
@@ -310,7 +310,7 @@ describe("Future Option Main Test", () => {
 			})
 			.signers([keypair])
 			.rpc();
-		console.log(JSON.stringify(tx));
+		ll(JSON.stringify(tx));
 		balcAdminPdaAtaAf = await balcToken(conn, adminPdaAtaPbk, "balcTokPdaAta");
 		signerAtaBalc = await balcToken(conn, toAta, "user1Ata");
 	});

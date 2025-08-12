@@ -17,3 +17,7 @@ declare module "bun" {
 	}
 }
 export const privkey = Bun.env.PRIVKEY;
+export const solanaEndpoint = Bun.env.QUICKNODE_URL;
+export const solanaSecretKey = Bun.env.WALLET_SECRET_KEY;
+
+export const solEndpoint = Bun.env.QUICKBOOK_METIS_ENDPOINT; // or use public api https://www.jupiterapi.com/`; // See https://www.jupiterapi.com/?utm_source=guides-jup-trading-bot

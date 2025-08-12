@@ -17,8 +17,7 @@ import {
 	buildTransferTokensTransaction,
 	getAssociatedTokenAccountAddress,
 } from "gill/programs/token";
-
-export const ll = console.log;
+import { ll } from "../tests/utils.ts";
 
 export const newKeypair = async (path: string) => {
 	const extractableSigner: KeyPairSigner =

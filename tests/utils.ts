@@ -25,7 +25,7 @@ export const mintAuth = mintAuthKp.publicKey;
 //cannot generate payer here, then import it into tests...
 
 //------------==
-export const ll = console.log;
+export const ll = ll;
 export const bn = (num: number | string) => new BN(num);
 export const zero = bn(0);
 export const ten = bn(10);
@@ -314,10 +314,10 @@ export const delayFunc = (delay: number): Promise<boolean> =>
 export const time = () => Math.floor(Date.now() / 1000);
 
 export const llbl = (text: string) => {
-	console.log(chalk.blue(text));
+	ll(chalk.blue(text));
 };
 export const llgn = (text: string) => {
-	console.log(chalk.green(text));
+	ll(chalk.green(text));
 };
 export const unixToLocal = (UNIX_timestamp: number) => {
 	//toLocaleDateString("en-US");

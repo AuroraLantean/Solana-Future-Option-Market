@@ -22,13 +22,11 @@ import {
 	type TransactionSignature,
 	VersionedTransaction,
 } from "@solana/web3.js";
-
-export const solEndpoint = Bun.env.QUICKBOOK_METIS_ENDPOINT; // or use public api https://www.jupiterapi.com/`; // See https://www.jupiterapi.com/?utm_source=guides-jup-trading-bot
-
-export const solanaMainnetAPI = Bun.env.QUICKBOOK_SOLANA_MAINNET;
+import { solanaEndpoint } from "../env.ts";
+import { ll } from "../tests/utils.ts";
 
 const CONFIG = {
-	basePath: solEndpoint,
+	basePath: solanaEndpoint,
 };
 const jupiterApi = createJupiterApiClient(CONFIG);
 
@@ -41,7 +39,7 @@ const quote = await jupiterApi
 	.catch((error) => {
 		console.error(error);
 	});
-console.log(quote?.outAmount, quote?.outputMint);
+ll(quote?.outAmount, quote?.outputMint);
 
 export interface ArbBotConfig {
 	solanaEndpoint: string; // e.g., "https://ex-am-ple.solana-mainnet.quiknode.pro/123456/"
@@ -131,11 +129,11 @@ export class ArbBot {
 		};
 	}
 	async init(): Promise<void> {
-		console.log(
+		ll(
 			`🤖 Initiating arb bot for wallet: ${this.wallet.publicKey.toBase58()}.`,
 		);
 		await this.refreshBalances();
-		console.log(
+		ll(
 			`🏦 Current balances:\nSOL: ${this.solBalance / LAMPORTS_PER_SOL},\nUSDC: ${this.usdcBalance}`,
 		);
 		this.initiatePriceWatch();
@@ -173,7 +171,7 @@ export class ArbBot {
 
 	private terminateSession(reason: string): void {
 		console.warn(`❌ Terminating bot...${reason}`);
-		console.log(
+		ll(
 			`Current balances:\nSOL: ${this.solBalance / LAMPORTS_PER_SOL},\nUSDC: ${this.usdcBalance}`,
 		);
 		if (this.priceWatchIntervalId) {
@@ -181,7 +179,7 @@ export class ArbBot {
 			this.priceWatchIntervalId = undefined; // Clear the reference to the interval
 		}
 		setTimeout(() => {
-			console.log("Bot has been terminated.");
+			ll("Bot has been terminated.");
 			process.exit(1);
 		}, 1000);
 	}
@@ -193,7 +191,7 @@ export class ArbBot {
 				this.lastCheck = currentTime;
 				try {
 					if (this.waitingForConfirmation) {
-						console.log("Waiting for previous transaction to confirm...");
+						ll("Waiting for previous transaction to confirm...");
 						return;
 					}
 					const quote = await this.getQuote(this.nextTrade);
@@ -217,7 +215,7 @@ export class ArbBot {
 			return quote;
 		} catch (error) {
 			if (error instanceof ResponseError) {
-				console.log(await error.response.json());
+				ll(await error.response.json());
 			} else {
 				console.error(error);
 			}
@@ -229,7 +227,7 @@ export class ArbBot {
 		const difference =
 			(parseInt(quote.outAmount) - this.nextTrade.nextTradeThreshold) /
 			this.nextTrade.nextTradeThreshold;
-		console.log(
+		ll(
 			`📈 Current price: ${quote.outAmount} is ${
 				difference > 0 ? "higher" : "lower"
 			} than the next trade threshold: ${this.nextTrade.nextTradeThreshold} by ${Math.abs(difference * 100).toFixed(2)}%.`,
@@ -305,7 +303,7 @@ export class ArbBot {
 			await this.postTransactionProcessing(route, txid);
 		} catch (error) {
 			if (error instanceof ResponseError) {
-				console.log(await error.response.json());
+				ll(await error.response.json());
 			} else {
 				console.error(error);
 			}
@@ -451,10 +449,10 @@ export class ArbBot {
 			} else {
 				appendFile(filePath, content, (err) => {
 					if (err) throw err;
-					console.log("The content was appended to file!");
+					ll("The content was appended to file!");
 				});
 			}
-			console.log(
+			ll(
 				`✅ Logged swap: ${inAmount} ${inputToken} -> ${outAmount} ${outputToken},\n  TX: ${txId}}`,
 			);
 		} catch (error) {
