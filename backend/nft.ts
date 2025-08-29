@@ -261,3 +261,37 @@ async function createTokenAndMint(): Promise<[string, string]> {
 
 	return [initSig, mintSig];
 }
+
+async function removeMetadataField() {
+	const transaction = new Transaction().add(
+		createRemoveKeyInstruction({
+			programId: TOKEN_2022_PROGRAM_ID,
+			metadata: mint,
+			updateAuthority: authority.publicKey,
+			key: "WrongData",
+			idempotent: true,
+		}),
+	);
+	const signature = await sendAndConfirmTransaction(connection, transaction, [
+		payer,
+		authority,
+	]);
+	return signature;
+}
+
+async function removeTokenAuthority(): Promise<string> {
+	const transaction = new Transaction().add(
+		createSetAuthorityInstruction(
+			mint,
+			authority.publicKey,
+			AuthorityType.MintTokens,
+			null,
+			[],
+			TOKEN_2022_PROGRAM_ID,
+		),
+	);
+	return await sendAndConfirmTransaction(connection, transaction, [
+		payer,
+		authority,
+	]);
+}
