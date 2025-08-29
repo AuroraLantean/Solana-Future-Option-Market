@@ -172,3 +172,92 @@ async function main() {
 		console.error(err);
 	}
 }
+
+async function createTokenAndMint(): Promise<[string, string]> {
+	// After calculating the minimum balance for the mint account...
+
+	// Prepare transaction
+	const transaction = new Transaction().add(
+		SystemProgram.createAccount({
+			fromPubkey: payer.publicKey,
+			newAccountPubkey: mint,
+			space: mintLen,
+			lamports: mintLamports,
+			programId: TOKEN_2022_PROGRAM_ID,
+		}),
+		createInitializeMetadataPointerInstruction(
+			mint,
+			authority.publicKey,
+			mint,
+			TOKEN_2022_PROGRAM_ID,
+		),
+		createInitializeMintInstruction(
+			mint,
+			decimals,
+			authority.publicKey,
+			null,
+			TOKEN_2022_PROGRAM_ID,
+		),
+		createInitializeInstruction({
+			programId: TOKEN_2022_PROGRAM_ID,
+			metadata: mint,
+			updateAuthority: authority.publicKey,
+			mint: mint,
+			mintAuthority: authority.publicKey,
+			name: tokenMetadata.name,
+			symbol: tokenMetadata.symbol,
+			uri: tokenMetadata.uri,
+		}),
+		createUpdateFieldInstruction({
+			programId: TOKEN_2022_PROGRAM_ID,
+			metadata: mint,
+			updateAuthority: authority.publicKey,
+			field: tokenMetadata.additionalMetadata[0][0],
+			value: tokenMetadata.additionalMetadata[0][1],
+		}),
+		createUpdateFieldInstruction({
+			programId: TOKEN_2022_PROGRAM_ID,
+			metadata: mint,
+			updateAuthority: authority.publicKey,
+			field: tokenMetadata.additionalMetadata[1][0],
+			value: tokenMetadata.additionalMetadata[1][1],
+		}),
+		createUpdateFieldInstruction({
+			programId: TOKEN_2022_PROGRAM_ID,
+			metadata: mint,
+			updateAuthority: authority.publicKey,
+			field: tokenMetadata.additionalMetadata[2][0],
+			value: tokenMetadata.additionalMetadata[2][1],
+		}),
+	);
+
+	// Initialize NFT with metadata
+	const initSig = await sendAndConfirmTransaction(connection, transaction, [
+		payer,
+		mintKeypair,
+		authority,
+	]);
+	// Create associated token account
+	const sourceAccount = await createAssociatedTokenAccountIdempotent(
+		connection,
+		payer,
+		mint,
+		owner.publicKey,
+		{},
+		TOKEN_2022_PROGRAM_ID,
+	);
+	// Mint NFT to associated token account
+	const mintSig = await mintTo(
+		connection,
+		payer,
+		mint,
+		sourceAccount,
+		authority,
+		mintAmount,
+		[],
+		undefined,
+		TOKEN_2022_PROGRAM_ID,
+	);
+
+	return [initSig, mintSig];
+}
