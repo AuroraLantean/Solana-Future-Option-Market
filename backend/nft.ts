@@ -140,7 +140,7 @@ async function airdropLamports() {
 	await confirmTransaction(connection, airdropSignature);
 }
 
-async function main() {
+export const mintNft = async () => {
 	try {
 		await airdropLamports();
 
@@ -171,7 +171,7 @@ async function main() {
 	} catch (err) {
 		console.error(err);
 	}
-}
+};
 
 async function createTokenAndMint(): Promise<[string, string]> {
 	// After calculating the minimum balance for the mint account...
@@ -289,6 +289,51 @@ async function removeTokenAuthority(): Promise<string> {
 			[],
 			TOKEN_2022_PROGRAM_ID,
 		),
+	);
+	return await sendAndConfirmTransaction(connection, transaction, [
+		payer,
+		authority,
+	]);
+}
+
+async function incrementPoints(pointsToAdd: number = 1) {
+	// Retrieve mint information
+	const mintInfo = await getMint(
+		connection,
+		mint,
+		"confirmed",
+		TOKEN_2022_PROGRAM_ID,
+	);
+
+	const metadataPointer = getMetadataPointerState(mintInfo);
+
+	if (!metadataPointer || !metadataPointer.metadataAddress) {
+		throw new Error("No metadata pointer found");
+	}
+
+	const metadata = await getTokenMetadata(
+		connection,
+		metadataPointer?.metadataAddress,
+	);
+
+	if (!metadata) {
+		throw new Error("No metadata found");
+	}
+	if (metadata.mint.toBase58() !== mint.toBase58()) {
+		throw new Error("Metadata does not match mint");
+	}
+	const [key, currentPoints] =
+		metadata.additionalMetadata.find(([key, _]) => key === "Points") ?? [];
+	let pointsAsNumber = parseInt(currentPoints ?? "0");
+	pointsAsNumber += pointsToAdd;
+	const transaction = new Transaction().add(
+		createUpdateFieldInstruction({
+			programId: TOKEN_2022_PROGRAM_ID,
+			metadata: mint,
+			updateAuthority: authority.publicKey,
+			field: "Points",
+			value: pointsAsNumber.toString(),
+		}),
 	);
 	return await sendAndConfirmTransaction(connection, transaction, [
 		payer,

@@ -12,6 +12,7 @@ import {
 	tokenBalcViaGill,
 } from "./backend/gill.ts";
 import { ArbBot, SwapToken } from "./backend/jupiter.ts";
+import { mintNft } from "./backend/nft.ts";
 import {
 	getResponse,
 	type PoolInfoList,
@@ -204,6 +205,11 @@ switch (arg0) {
 				console.error("An error occurred during the swap process:");
 				console.error(error);
 			});
+		}
+		break;
+	case "mint-nft": //
+		{
+			mintNft();
 		}
 		break;
 	default: //bun run index.ts g15
