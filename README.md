@@ -1,5 +1,16 @@
 # Solana-future-option-Market
 
+## Summary
+- Solana accounts are used to store variables, because all Solana programs cannot store variables like those in Ethereum smart contracts.
+- Config account: The Admin(backend) makes the Config account. The Solana smart contract(program) has one Config account to store all the program configurations(program variables)
+- OptContract accounts: Admin can initialize an OptContract with strike prices, contract prices, expiry dates. Each OptContract will store those variables.
+- UserPayment accounts: Each user can make 1 UserPayment account for each OptContract, to store the user's bought amounts on each option.
+- Users can buy any of the OptContract options after startTime and before the endTime. Repeated buying from the same user is allowed.
+- Admin ends the OptContract with the winning option, and withdraw the platform commission
+- Users can claim their rewards if they chose the winning opinion
+- Admin withdraws the unclaimed rewards from the OptContract
+
+
 ## Installation
 
 Install Anchor

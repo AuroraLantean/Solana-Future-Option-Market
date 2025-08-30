@@ -1,4 +1,4 @@
-//Mint a Solana NFT with the SPL Metadata Token Extension
+//Mint a Solana NFT with the SPL Metadata Token Extension  https://www.quicknode.com/guides/solana-development/spl-tokens/token-2022/nft
 
 import {
 	AuthorityType,
@@ -174,7 +174,19 @@ export const mintNft = async () => {
 };
 
 async function createTokenAndMint(): Promise<[string, string]> {
-	// After calculating the minimum balance for the mint account...
+	// Calculate the minimum balance for the mint account
+	const mintLen = getMintLen([ExtensionType.MetadataPointer]);
+	const metadataLen = TYPE_SIZE + LENGTH_SIZE + pack(tokenMetadata).length;
+	const mintLamports = await connection.getMinimumBalanceForRentExemption(
+		mintLen + metadataLen,
+	);
+
+	const arr0 = tokenMetadata.additionalMetadata[0];
+	if (!arr0 || arr0?.length < 2) throw new Error("arr0 invalid");
+	const arr1 = tokenMetadata.additionalMetadata[1];
+	if (!arr1 || arr1?.length < 2) throw new Error("arr1 invalid");
+	const arr2 = tokenMetadata.additionalMetadata[2];
+	if (!arr2 || arr2?.length < 2) throw new Error("arr2 invalid");
 
 	// Prepare transaction
 	const transaction = new Transaction().add(
@@ -212,22 +224,22 @@ async function createTokenAndMint(): Promise<[string, string]> {
 			programId: TOKEN_2022_PROGRAM_ID,
 			metadata: mint,
 			updateAuthority: authority.publicKey,
-			field: tokenMetadata.additionalMetadata[0][0],
-			value: tokenMetadata.additionalMetadata[0][1],
+			field: arr0[0],
+			value: arr0[1],
 		}),
 		createUpdateFieldInstruction({
 			programId: TOKEN_2022_PROGRAM_ID,
 			metadata: mint,
 			updateAuthority: authority.publicKey,
-			field: tokenMetadata.additionalMetadata[1][0],
-			value: tokenMetadata.additionalMetadata[1][1],
+			field: arr1[0],
+			value: arr1[1],
 		}),
 		createUpdateFieldInstruction({
 			programId: TOKEN_2022_PROGRAM_ID,
 			metadata: mint,
 			updateAuthority: authority.publicKey,
-			field: tokenMetadata.additionalMetadata[2][0],
-			value: tokenMetadata.additionalMetadata[2][1],
+			field: arr2[0],
+			value: arr2[1],
 		}),
 	);
 
