@@ -26,6 +26,17 @@ fn time() -> Result<u32> {
   msg!("Solana time:{:?}, slot:{:?}", time, clock.slot);
   Ok(time)
 }
+fn get_premium(opt_ctrt_amount: u64, ctrt_price: u64) -> Result<u64> {
+  let shares = opt_ctrt_amount.checked_mul(100);
+  if shares.is_none() {
+    return err!(ErrorCode::MathMultOverflow);
+  }
+  let premium = ctrt_price.checked_mul(shares.unwrap());
+  if premium.is_none() {
+    return err!(ErrorCode::MathMultOverflow);
+  }
+  Ok(premium.unwrap())
+}
 
 #[program]
 pub mod future_option_market {
@@ -61,8 +72,8 @@ pub mod future_option_market {
     option_id: String,
     asset_name: String,
     is_call_opt: bool,
-    strike_prices: [u128; LEN],
-    ctrt_prices: [u128; LEN],
+    strike_prices: [u64; LEN],
+    ctrt_prices: [u64; LEN],
     expiry_times: [u32; LEN],
   ) -> Result<()> {
     msg!("new_option()");
@@ -110,12 +121,25 @@ pub mod future_option_market {
     config.admin_pda_ata = ctx.accounts.admin_pda_ata.key();
     Ok(())
   }
-  pub fn buy_option(ctx: Context<BuyOption>, _option_id: String, token_amount: u64) -> Result<()> {
+  pub fn buy_option(
+    ctx: Context<BuyOption>,
+    _option_id: String,
+    opt_ctrt_amount: u64,
+    idx: usize,
+  ) -> Result<()> {
     msg!("buy_option()");
     let opt_ctrt = &mut ctx.accounts.opt_ctrt;
     let config = &mut ctx.accounts.config;
-    let time = time()?;
+    //let time = time()?;
     let user_payment = &mut ctx.accounts.user_payment;
+
+    let token_amount = get_premium(opt_ctrt_amount, opt_ctrt.ctrt_prices[idx])?;
+
+    let new_payment = user_payment.payments[idx].checked_add(token_amount);
+    if new_payment.is_none() {
+      return err!(ErrorCode::MathAddOverflow);
+    }
+    user_payment.payments[idx] = new_payment.unwrap();
 
     //https://www.anchor-lang.com/docs/tokens/basics/transfer-tokens
     let decimals = ctx.accounts.mint.decimals;
@@ -130,9 +154,19 @@ pub mod future_option_market {
     let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
 
     transfer_checked(cpi_context, token_amount, decimals)?;
-    user_payment.payments[0] = token_amount;
     Ok(())
   }
+  /*pub struct OptContract {
+    #[max_len(20)]
+    pub asset_name: String,
+    pub is_call: bool,
+    pub strike_prices: [u128; LEN],
+    pub ctrt_prices: [u128; LEN], //ask_price, price per share to buy 1 contract, but must multiply this by 100 shares to get the premium(total cost)
+    pub expiry_times: [u32; LEN],
+  }
+  pub struct UserPayment {
+    pub payments: [u64; LEN],
+  }*/
 
   //https://www.anchor-lang.com/docs/tokens/basics/transfer-tokens
   pub fn withdraw_token(ctx: Context<WithdrawToken>, amount: u64) -> Result<()> {
@@ -155,6 +189,72 @@ pub mod future_option_market {
     transfer_checked(cpi_context, amount, decimals)?;
     Ok(())
   }
+  pub fn sell_option(
+    ctx: Context<SellOption>,
+    _option_id: String,
+    opt_ctrt_amount: u64,
+    idx: usize,
+  ) -> Result<()> {
+    msg!("sell_option()");
+    let opt_ctrt = &mut ctx.accounts.opt_ctrt;
+    let config = &mut ctx.accounts.config;
+    //let time = time()?;
+    let user_payment = &mut ctx.accounts.user_payment;
+
+    let token_amount = get_premium(opt_ctrt_amount, opt_ctrt.ctrt_prices[idx])?;
+
+    let new_payment = user_payment.payments[idx].checked_sub(token_amount);
+    if new_payment.is_none() {
+      return err!(ErrorCode::MathSubUnderflow);
+    }
+    user_payment.payments[idx] = new_payment.unwrap();
+
+    let decimals = ctx.accounts.mint.decimals;
+
+    let signer_seeds: &[&[&[u8]]] = &[&[ADMINPDA.as_ref(), &[ctx.bumps.admin_pda]]];
+
+    let cpi_accounts = TransferChecked {
+      mint: ctx.accounts.mint.to_account_info(),
+      from: ctx.accounts.admin_pda_ata.to_account_info(),
+      to: ctx.accounts.user_ata.to_account_info(),
+      authority: ctx.accounts.admin_pda.to_account_info(),
+    };
+    let cpi_program = ctx.accounts.token_program.to_account_info();
+
+    let cpi_context = CpiContext::new(cpi_program, cpi_accounts).with_signer(signer_seeds);
+
+    msg!("withdraw_token::transfer_checked()");
+    transfer_checked(cpi_context, token_amount, decimals)?;
+    Ok(())
+  }
+}
+#[derive(Accounts)]
+#[instruction(option_id: String)]
+pub struct SellOption<'info> {
+  #[account(mut)] //TODO:check signer
+  pub user: Signer<'info>,
+
+  #[account(mut, seeds = [OPTIONCTRT, config.unique.key().as_ref(), option_id.as_bytes()],bump)]
+  pub opt_ctrt: Box<Account<'info, OptContract>>,
+  #[account(seeds = [CONFIG], bump)]
+  pub config: Account<'info, Config>,
+
+  #[account(mut, token::mint = mint, token::authority = user, token::token_program = token_program)]
+  pub user_ata: InterfaceAccount<'info, TokenAccount>,
+
+  #[account(mut, seeds = [ADMINPDAATA], bump, token::mint = mint, token::token_program = token_program)]
+  pub admin_pda_ata: InterfaceAccount<'info, TokenAccount>,
+  #[account(mut, seeds = [USERPAYMENT, user.key().as_ref(), opt_ctrt.key().as_ref()], bump)]
+  pub user_payment: Box<Account<'info, UserPayment>>,
+
+  #[account(seeds = [ADMINPDA], bump)]
+  pub admin_pda: Account<'info, AdminPda>,
+
+  #[account(constraint = config.mint == mint.key() @ ErrorCode::TokenMintInvalid)]
+  pub mint: InterfaceAccount<'info, Mint>,
+
+  #[account(constraint = config.token_program == token_program.key())]
+  pub token_program: Interface<'info, TokenInterface>,
 }
 #[derive(Accounts)]
 pub struct WithdrawToken<'info> {
@@ -200,6 +300,7 @@ pub struct BuyOption<'info> {
   pub admin_pda_ata: InterfaceAccount<'info, TokenAccount>,
   #[account(mut, seeds = [USERPAYMENT, user.key().as_ref(), opt_ctrt.key().as_ref()], bump)]
   pub user_payment: Box<Account<'info, UserPayment>>,
+
   #[account(constraint = config.mint == mint.key() @ ErrorCode::TokenMintInvalid)]
   pub mint: InterfaceAccount<'info, Mint>,
 
@@ -285,8 +386,8 @@ pub struct OptContract {
   #[max_len(20)]
   pub asset_name: String,
   pub is_call: bool,
-  pub strike_prices: [u128; LEN], //strike_price
-  pub ctrt_prices: [u128; LEN], //ask price, price per share to buy 1 contract, but must multiply this by 100 shares to get the premium(total cost)
+  pub strike_prices: [u64; LEN], //strike_price
+  pub ctrt_prices: [u64; LEN], //ask price, price per share to buy 1 contract, but must multiply this by 100 shares to get the premium(total cost)
   pub expiry_times: [u32; LEN],
 }
 
@@ -356,6 +457,14 @@ pub enum ErrorCode {
   CtrtPriceInvalid,
   #[msg("token mint invalid")]
   TokenMintInvalid,
+  #[msg("invalid amount")]
+  InvalidAmount,
+  #[msg("math mult overflow")]
+  MathMultOverflow,
+  #[msg("math add overflow")]
+  MathAddOverflow,
+  #[msg("math sub underflow")]
+  MathSubUnderflow,
 }
 /*TODO: realloc
 https://solana.com/developers/courses/onchain-development/anchor-pdas
