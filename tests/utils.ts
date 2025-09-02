@@ -25,7 +25,7 @@ export const mintAuth = mintAuthKp.publicKey;
 //cannot generate payer here, then import it into tests...
 
 //------------==
-export const ll = ll;
+export const ll = console.log;
 export const bn = (num: number | string) => new BN(num);
 export const zero = bn(0);
 export const ten = bn(10);
@@ -72,8 +72,8 @@ export const getConfig = (programId: PublicKey, pdaName: string): PublicKey => {
 	return publickey;
 };
 export const getOptCtrt = (
-	optionId: string,
 	config_uniquekey: PublicKey,
+	optionId: string,
 	programId: PublicKey,
 	pdaName: string,
 ): PublicKey => {
@@ -124,6 +124,13 @@ export const getUserPayment = (
 	ll(pdaName, ":", publickey.toBase58());
 	return publickey;
 };
+export const getPremium = (
+	optCtrtAmtBn: anchor.BN,
+	ctrtPrice: anchor.BN | undefined,
+) => {
+	if (!ctrtPrice) throw new Error("ctrtPrice is null");
+	return optCtrtAmtBn.mul(bn(100)).mul(ctrtPrice);
+}; // option contract premium = 100 shares of the underlying asset price
 
 export const addSol = async (
 	conn: anchor.web3.Connection,

@@ -1,8 +1,7 @@
 #![allow(unexpected_cfgs)]
 use anchor_lang::prelude::*;
-use anchor_spl::{
-  associated_token::AssociatedToken,
-  token_interface::{transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked},
+use anchor_spl::token_interface::{
+  transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked,
 };
 //mod err;
 //mod events;
@@ -125,7 +124,7 @@ pub mod future_option_market {
     ctx: Context<BuyOption>,
     _option_id: String,
     opt_ctrt_amount: u64,
-    idx: usize,
+    index: u32,
   ) -> Result<()> {
     msg!("buy_option()");
     let opt_ctrt = &mut ctx.accounts.opt_ctrt;
@@ -133,7 +132,9 @@ pub mod future_option_market {
     //let time = time()?;
     let user_payment = &mut ctx.accounts.user_payment;
 
+    let idx = index as usize;
     let token_amount = get_premium(opt_ctrt_amount, opt_ctrt.ctrt_prices[idx])?;
+    msg!("token_amount: {}", token_amount);
 
     let new_payment = user_payment.payments[idx].checked_add(token_amount);
     if new_payment.is_none() {
@@ -170,7 +171,8 @@ pub mod future_option_market {
 
   //https://www.anchor-lang.com/docs/tokens/basics/transfer-tokens
   pub fn withdraw_token(ctx: Context<WithdrawToken>, amount: u64) -> Result<()> {
-    msg!("withdraw_token()");
+    //TODO: check signer
+    msg!("withdraw tokens");
     let decimals = ctx.accounts.mint.decimals;
 
     let signer_seeds: &[&[&[u8]]] = &[&[ADMINPDA.as_ref(), &[ctx.bumps.admin_pda]]];
@@ -193,7 +195,7 @@ pub mod future_option_market {
     ctx: Context<SellOption>,
     _option_id: String,
     opt_ctrt_amount: u64,
-    idx: usize,
+    index: u32,
   ) -> Result<()> {
     msg!("sell_option()");
     let opt_ctrt = &mut ctx.accounts.opt_ctrt;
@@ -201,6 +203,7 @@ pub mod future_option_market {
     //let time = time()?;
     let user_payment = &mut ctx.accounts.user_payment;
 
+    let idx = index as usize;
     let token_amount = get_premium(opt_ctrt_amount, opt_ctrt.ctrt_prices[idx])?;
 
     let new_payment = user_payment.payments[idx].checked_sub(token_amount);
@@ -258,7 +261,7 @@ pub struct SellOption<'info> {
 }
 #[derive(Accounts)]
 pub struct WithdrawToken<'info> {
-  #[account(mut)] //TODO:check signer
+  #[account(mut)]
   pub signer: Signer<'info>,
 
   #[account(mut, constraint = config.mint == mint.key() @ ErrorCode::TokenMintInvalid)]

@@ -15,6 +15,7 @@ import {
 	getAdminPdaata,
 	getConfig,
 	getOptCtrt,
+	getPremium,
 	getUserPayment,
 	ll,
 	mintAuthKp,
@@ -22,6 +23,7 @@ import {
 	newMint,
 	type OptCtrtT,
 	type TokenBalc,
+	ten,
 	time,
 	tokenProg,
 	type UserPaymentT,
@@ -39,8 +41,10 @@ let amount: number;
 let amtInBig: bigint;
 let amtOutBig: bigint;
 let timeLocal: number;
+let optIndex: number;
 let t0: number;
 let amtBn: anchor.BN;
+let optCtrtAmtBn: anchor.BN;
 let strike: anchor.BN;
 let ctrtPrice: anchor.BN;
 let expiry: number;
@@ -51,6 +55,7 @@ let tx: string;
 let optionId: string;
 let assetName: string;
 let isCallOpt: boolean;
+let configPbk: PublicKey;
 let optCtrtPbk: PublicKey;
 let toAta: PublicKey;
 let adminPdaPbk: PublicKey;
@@ -72,7 +77,6 @@ describe("Future Option Main Test", () => {
 	const wat = provider.wallet as anchor.Wallet;
 	const wallet = wat.publicKey;
 	const pgid = program.programId;
-	const configPbk = getConfig(pgid, "config");
 
 	const payerKp = mintAuthKp; // new Keypair();
 	const payer = payerKp.publicKey;
@@ -84,6 +88,8 @@ describe("Future Option Main Test", () => {
 	const user1 = user1Kp.publicKey;
 	const user2Kp = new Keypair();
 	const user2 = user2Kp.publicKey;
+
+	configPbk = getConfig(pgid, "config");
 
 	before(async () => {
 		await balcSOL(conn, wallet, "wallet");
@@ -128,7 +134,10 @@ describe("Future Option Main Test", () => {
 			bn(120000),
 			bn(121000),
 		];
-		ctrtPrices = [bn(94), bn(95), bn(96), bn(97), bn(98), bn(99), bn(100)];
+		ctrtPrices = [bn(94), bn(95), bn(96), bn(97), bn(98), bn(99), bn(100)].map(
+			(v) => v.mul(bn(10000)),
+		);
+		ll("ctrtPrices:", ctrtPrices.toString());
 		t0 = time();
 		ll("t0:", t0);
 		expiryTimes = [
@@ -158,11 +167,12 @@ describe("Future Option Main Test", () => {
 			.signers([keypair])
 			.rpc();
 		ll("check 010");
-		optCtrtPbk = getOptCtrt(optionId, unique, pgid, "option");
+		optCtrtPbk = getOptCtrt(unique, optionId, pgid, "optCtrt");
+
 		optCtrt = await program.account.optContract.fetch(optCtrtPbk);
 		ll("check23 optCtrt:", JSON.stringify(optCtrt));
-		ll(optCtrt.strikePrices[0]?.toNumber());
-		ll(optCtrt.ctrtPrices[0]?.toNumber());
+		ll("strikePrices:", optCtrt.strikePrices[0]?.toNumber());
+		ll("ctrtPrices:", optCtrt.ctrtPrices[0]?.toNumber());
 		assert(assetName === optCtrt.assetName);
 		assert(isCallOpt === optCtrt.isCall);
 		assert(expiryTimes[0] === optCtrt.expiryTimes[0]);
@@ -232,19 +242,24 @@ describe("Future Option Main Test", () => {
 		adminAta = await mintToken(conn, 9000, admin, usdtMint, "USDT Admin");
 		user1Ata = await mintToken(conn, 9000, user1, usdtMint, "USDT User1");
 	});
+
 	it("User1 buys Option Contract", async () => {
 		keypair = user1Kp;
-		amtBn = bnTok(100, usdtDecimals);
+		optCtrtAmtBn = bn(1);
+		optIndex = 0;
+		//optCtrtPbk = getOptCtrt(unique, optionId, pgid, "optCtrt");
+		ll("optCtrtPbk:", optCtrtPbk.toBase58());
+
 		await program.methods
-			.buyOption(optionId, amtBn)
+			.buyOption(optionId, optCtrtAmtBn, optIndex)
 			.accounts({
-				//optCtrt: optCtrtPbk,
+				optCtrt: optCtrtPbk,
 				//config: configPbk,
 				userAta: user1Ata,
 				//adminPdaAta: adminPdaAtaPbk,
 				//userPayment: user1PaymentPbk,
-				user: keypair.publicKey,
 				mint: usdtMint,
+				user: keypair.publicKey,
 				tokenProgram: tokenProg,
 			})
 			.signers([keypair])
@@ -257,16 +272,18 @@ describe("Future Option Main Test", () => {
 			"userPayment",
 		);
 		user1Payment = await program.account.userPayment.fetch(user1PaymentPbk);
-		ll(
-			"user1Payment:",
-			JSON.stringify(user1Payment),
-			user1Payment.payments.toString(),
-		);
-		expect(user1Payment.payments[0]!.eq(amtBn));
+		ll("user1Payment:", user1Payment.payments.toString());
+
+		optCtrt = await program.account.optContract.fetch(optCtrtPbk);
+		const ctrtPrice = optCtrt.ctrtPrices[optIndex];
+		ll("optCtrt price at index:", ctrtPrice?.toString());
+		const premium = getPremium(optCtrtAmtBn, ctrtPrice);
+		ll("premium:", premium.toString());
+		expect(user1Payment.payments[optIndex]?.eq(premium));
 		//expect(user1Payment.balance.eq(zero));
 
-		user1AtaBalc = await balcToken(conn, user1Ata, "user1AtaBalc");
-		balcAdminPdaAtaAf = await balcToken(conn, adminPdaAtaPbk, "balcTokPdaAta");
+		user1AtaBalc = await balcToken(conn, user1Ata, "user1Ata");
+		balcAdminPdaAtaAf = await balcToken(conn, adminPdaAtaPbk, "adminPdaAta");
 	});
 
 	it("withdraw tokens", async () => {
@@ -275,6 +292,8 @@ describe("Future Option Main Test", () => {
 		toAta = adminAta;
 		amount = 70;
 		amtBn = bnTok(amount, usdtDecimals);
+		ll("amtBn:", amtBn.toString());
+
 		tx = await program.methods
 			.withdrawToken(amtBn)
 			.accounts({
@@ -288,14 +307,14 @@ describe("Future Option Main Test", () => {
 			})
 			.signers([keypair])
 			.rpc();
-		ll(JSON.stringify(tx));
+		//ll(JSON.stringify(tx));
 		balcAdminPdaAtaAf = await balcToken(conn, adminPdaAtaPbk, "balcTokPdaAta");
 		signerAtaBalc = await balcToken(conn, toAta, "adminAta");
 
 		//user1 to withdraw the rest
 		keypair = user1Kp;
 		toAta = user1Ata;
-		amount = 30;
+		amount = 24;
 		amtBn = bnTok(amount, usdtDecimals);
 		tx = await program.methods
 			.withdrawToken(amtBn)
