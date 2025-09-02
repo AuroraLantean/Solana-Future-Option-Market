@@ -5,9 +5,11 @@
 - Config account: The Admin(backend) makes the Config account. The Solana smart contract(program) has one Config account to store all the program configurations(program variables)
 - OptContract accounts: Admin can initialize an OptContract with strike prices, contract prices, expiry dates. Each OptContract will store those variables.
 - UserPayment accounts: Each user can make 1 UserPayment account for each OptContract, to store the user's bought amounts on each option.
-- Users can buy any of the OptContract options after startTime and before the endTime. Repeated buying from the same user is allowed.
-- Admin ends the OptContract with the winning option, and withdraw the platform commission
-- Users can claim their rewards if they chose the winning opinion
+
+- User can buy any of the OptContract options after startTime and before the endTime. Repeated buying from the same user is allowed.
+
+- User can sell their contract before the expiry date OR Upon the expiry time, the user can buy the underlying asset with the corresponding strikePrice in OptContract 
+
 - Admin withdraws the unclaimed rewards from the OptContract
 
 
@@ -16,11 +18,11 @@
 Install Anchor
 https://www.anchor-lang.com/docs/installation
 ```
-Rustc 1.88.0 (6b00bc388 2025-06-23)
-Solana-cli 2.2.20 (src:dabc99a5; feat:3073396398, client:Agave)
+Rustc 1.89.0 (29483883e 2025-08-04)
+solana-cli 3.0.0 (src:b6c96e84; feat:128318206, client:Agave)
 Anchor-cli 0.31.1
 Yarn 1.22.22
-Bun v1.2.19
+Bun v1.2.21
 ```
 
 ## Setup

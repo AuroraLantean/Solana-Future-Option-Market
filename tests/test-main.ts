@@ -126,14 +126,14 @@ describe("Future Option Main Test", () => {
 		assetName = "Bitcoin";
 		isCallOpt = true;
 		strikePrices = [
-			bn(115000),
-			bn(116000),
-			bn(117000),
-			bn(118000),
-			bn(119000),
-			bn(120000),
-			bn(121000),
-		];
+			bn(115),
+			bn(116),
+			bn(117),
+			bn(118),
+			bn(119),
+			bn(120),
+			bn(121),
+		].map((v) => v.mul(bn(1000)));
 		ctrtPrices = [bn(94), bn(95), bn(96), bn(97), bn(98), bn(99), bn(100)].map(
 			(v) => v.mul(bn(10000)),
 		);
