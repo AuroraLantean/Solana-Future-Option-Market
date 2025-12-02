@@ -26,6 +26,7 @@ export const mintAuth = mintAuthKp.publicKey;
 
 //------------==
 export const ll = console.log;
+export type ABN = anchor.BN;
 export const bn = (num: number | string) => new BN(num);
 export const zero = bn(0);
 export const ten = bn(10);
@@ -46,21 +47,21 @@ export const bnTok = (uiAmount: number, decimals: number) =>
 
 export type ConfigT = {
 	owner: PublicKey;
-	balance: anchor.BN;
+	balance: ABN;
 	time: number;
 };
 export type OptCtrtT = {
 	assetName: string;
 	isCall: boolean;
-	strikePrices: anchor.BN[]; //strike_price
-	ctrtPrices: anchor.BN[];
+	strikePrices: ABN[]; //strike_price
+	ctrtPrices: ABN[];
 	expiryTimes: number[];
 };
 export type UserPaymentT = {
-	payments: anchor.BN[];
+	payments: ABN[];
 };
 export type AdminPdaT = {
-	solBalc: anchor.BN;
+	solBalc: ABN;
 };
 
 export const getConfig = (programId: PublicKey, pdaName: string): PublicKey => {
@@ -124,10 +125,7 @@ export const getUserPayment = (
 	ll(pdaName, ":", publickey.toBase58());
 	return publickey;
 };
-export const getPremium = (
-	optCtrtAmtBn: anchor.BN,
-	ctrtPrice: anchor.BN | undefined,
-) => {
+export const getPremium = (optCtrtAmtBn: ABN, ctrtPrice: ABN | undefined) => {
 	if (!ctrtPrice) throw new Error("ctrtPrice is null");
 	return optCtrtAmtBn.mul(bn(100)).mul(ctrtPrice);
 }; // option contract premium = 100 shares of the underlying asset price
@@ -168,7 +166,7 @@ export const balcSOL = async (
 };
 export type TokenBalc = {
 	str: string;
-	bn: anchor.BN;
+	bn: ABN;
 	num: number;
 };
 export const balcToken = async (

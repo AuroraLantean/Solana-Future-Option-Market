@@ -4,6 +4,7 @@ import { assert, expect } from "chai";
 //import { type AccountInfoBytes, LiteSVM } from "litesvm";
 //import type { FutureOptionMarket } from "../target/types/future_option_market";
 import {
+	type ABN,
 	type AdminPdaT,
 	addSol,
 	balcSOL,
@@ -23,7 +24,6 @@ import {
 	newMint,
 	type OptCtrtT,
 	type TokenBalc,
-	ten,
 	time,
 	tokenProg,
 	type UserPaymentT,
@@ -43,13 +43,13 @@ let amtOutBig: bigint;
 let timeLocal: number;
 let optIndex: number;
 let t0: number;
-let amtBn: anchor.BN;
-let optCtrtAmtBn: anchor.BN;
-let strike: anchor.BN;
-let ctrtPrice: anchor.BN;
+let amtBn: ABN;
+let optCtrtAmtBn: ABN;
+let strike: ABN;
+let ctrtPrice: ABN;
 let expiry: number;
-let strikePrices: anchor.BN[];
-let ctrtPrices: anchor.BN[];
+let strikePrices: ABN[];
+let ctrtPrices: ABN[];
 let expiryTimes: number[];
 let tx: string;
 let optionId: string;
