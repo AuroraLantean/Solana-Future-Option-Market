@@ -5,13 +5,24 @@ import {
 	SystemProgram,
 	Transaction,
 } from "@solana/web3.js";
-import { initSolBalc, pythOracle, svm } from "./litesvm-utils.ts";
+import jsonPricefeedBTCUSD from "../pricefeedsPyth/BTCUSD.json";
+import {
+	initSolBalc,
+	pythOracle,
+	setPriceFeedPda,
+	svm,
+} from "./litesvm-utils.ts";
 import { ll } from "./utils.ts";
-import { hackerKp, pricefeedBTCUSD, user1, user1Kp } from "./web3jsSetup.ts";
+import {
+	addrPricefeedBTCUSD,
+	hackerKp,
+	user1,
+	user1Kp,
+} from "./web3jsSetup.ts";
 
 //clear; jj tts 1
 let signerKp: Keypair;
-let priceUpdate: PublicKey;
+let pricefeedAcct: PublicKey;
 
 test("one transfer", () => {
 	const payer = hackerKp;
@@ -38,15 +49,16 @@ test("one transfer", () => {
 test("PythOracle", () => {
 	ll("\n------== PythOracle");
 	signerKp = user1Kp;
-	priceUpdate = pricefeedBTCUSD;
+	pricefeedAcct = addrPricefeedBTCUSD;
 
-	pythOracle(signerKp, priceUpdate);
+	setPriceFeedPda(pricefeedAcct, jsonPricefeedBTCUSD);
+	pythOracle(signerKp, pricefeedAcct);
 
 	// const pdaRaw = svm.getAccount(configPDA);
 	// expect(pdaRaw).not.toBeNull();
 	// const rawAccountData = pdaRaw?.data;
 	// ll("rawAccountData:", rawAccountData);
-	// expect(pdaRaw?.owner).toEqual(futureOptionAddr);
+	// expect(pdaRaw?.owner).toEqual(addrFutureOption);
 
 	//const decoded = solanaKitDecodeConfigDev(rawAccountData);
 });

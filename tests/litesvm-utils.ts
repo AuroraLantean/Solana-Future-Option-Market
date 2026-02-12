@@ -2,7 +2,7 @@ import { expect } from "bun:test";
 import {
 	type Keypair,
 	LAMPORTS_PER_SOL,
-	type PublicKey,
+	PublicKey,
 	Transaction,
 	TransactionInstruction,
 } from "@solana/web3.js";
@@ -13,10 +13,10 @@ import {
 	type SimulatedTransactionInfo,
 	TransactionMetadata,
 } from "litesvm";
-
+import type { SolanaAccount } from "./utils.ts";
 import {
+	addrFutureOption,
 	admin,
-	futureOptionAddr,
 	hacker,
 	owner,
 	user1,
@@ -47,7 +47,7 @@ export const acctExists = (account: PublicKey) => {
 };
 //-------------== Program Methods
 export const pythOracle = (signer: Keypair, priceUpdate: PublicKey) => {
-	//const argData = [];
+	const disc = [121, 193, 165, 234, 80, 102, 132, 189];
 
 	const blockhash = svm.latestBlockhash();
 	const ix = new TransactionInstruction({
@@ -55,14 +55,34 @@ export const pythOracle = (signer: Keypair, priceUpdate: PublicKey) => {
 			{ pubkey: signer.publicKey, isSigner: true, isWritable: true },
 			{ pubkey: priceUpdate, isSigner: false, isWritable: true },
 		],
-		programId: futureOptionAddr,
-		//data: Buffer.from([disc]),
+		programId: addrFutureOption,
+		data: Buffer.from([...disc]),
 		//data: Buffer.from([disc, ...argData]),
 	});
 	sendTxns(svm, blockhash, [ix], [signer]);
 };
 
-//---------------== Deployment
+//---------------==
+export const setPriceFeedPda = (addr: PublicKey, jsonData: SolanaAccount) => {
+	//const file = Bun.file(path);
+	// await file.json();
+	ll("jsonData:", jsonData);
+	const account = jsonData.account;
+
+	if (account.data.length < 2)
+		throw new Error("account data should have length 2");
+	// biome-ignore lint/style/noNonNullAssertion: <>
+	const data = Uint8Array.fromBase64(account.data[0]!);
+	ll("data:", data);
+	ll("lamports:", account.lamports);
+	svm.setAccount(addr, {
+		lamports: account.lamports,
+		data,
+		owner: new PublicKey(account.owner),
+		executable: account.executable,
+		//rentEpoch: account.rentEpoch,
+	});
+};
 export const deployProgram = (computeMaxUnits?: bigint) => {
 	ll("deployProgram...");
 	if (computeMaxUnits) {
@@ -74,11 +94,11 @@ export const deployProgram = (computeMaxUnits?: bigint) => {
 	//# Dump a program from mainnet
 	//solana program dump progAddr pyth.so --url mainnet-beta
 
-	svm.addProgramFromFile(futureOptionAddr, programPath);
+	svm.addProgramFromFile(addrFutureOption, programPath);
 	//return [programId];
 };
 deployProgram();
-acctExists(futureOptionAddr);
+acctExists(addrFutureOption);
 
 //---------------==
 export const sendTxns = (
@@ -87,7 +107,7 @@ export const sendTxns = (
 	ixs: TransactionInstruction[],
 	signerKps: Keypair[],
 	expectedError = "",
-	programId = futureOptionAddr,
+	programId = addrFutureOption,
 ) => {
 	const tx = new Transaction();
 	tx.recentBlockhash = blockhash;

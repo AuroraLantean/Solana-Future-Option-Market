@@ -31,3 +31,9 @@ shutdown_wait = 2000
 
 [scripts]
 test = "bun run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+
+#[test.validator]
+#url = "https://api.mainnet-beta.solana.com"
+
+#[[test.validator.clone]]
+#address = "4cSM2e6rvbGQUFiJbqytoVMi5GgghSMr8LwVrT9VPSPo"

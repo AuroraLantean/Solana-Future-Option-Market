@@ -233,13 +233,9 @@ pub mod future_option_market {
     transfer_checked(cpi_context, token_amount, decimals)?;
     Ok(())
   }
-  /**  pub fn sell_option(
-    ctx: Context<SellOption>,
-    _option_id: String,
-    opt_ctrt_amount: u64,
-    index: u32,
-  ) -> Result<()> { */
+
   pub fn pyth_oracle(ctx: Context<PythOracle>) -> Result<()> {
+    msg!("pyth_oracle process()");
     let price_update = &mut ctx.accounts.price_update;
     // get_price_no_older_than will fail if the price update is more than 30 seconds old
     let maximum_age: u64 = 30;

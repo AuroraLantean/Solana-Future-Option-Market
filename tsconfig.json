@@ -11,11 +11,11 @@
     "lib": [
       "ESNext"
     ],
-    "module": "nodenext",
+    "module": "Preserve",
     "target": "ESNext",
     "moduleDetection": "force",
     "allowJs": true,
-    "moduleResolution": "nodenext", //bundler
+    "moduleResolution": "bundler", //bundler
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "allowImportingTsExtensions": true,

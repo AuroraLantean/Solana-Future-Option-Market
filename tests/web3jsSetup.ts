@@ -16,13 +16,13 @@ export const user2 = user2Kp.publicKey;
 export const user3 = user3Kp.publicKey;
 export const hacker = hackerKp.publicKey;
 
-export const futureOptionAddr = new PublicKey(
+export const addrFutureOption = new PublicKey(
 	"CgZEcSRPh1Ay1EYR4VJPTJRYcRkTDjjZhBAjZ5M8keGp",
 );
-ll("futureOptionAddr:", futureOptionAddr.toBase58());
-export const pricefeedBTCUSD = new PublicKey(
+ll("addrFutureOption:", addrFutureOption.toBase58());
+export const addrPricefeedBTCUSD = new PublicKey(
 	"4cSM2e6rvbGQUFiJbqytoVMi5GgghSMr8LwVrT9VPSPo",
 );
-ll("pricefeedBTCUSD:", pricefeedBTCUSD.toBase58());
+ll("addrPricefeedBTCUSD:", addrPricefeedBTCUSD.toBase58());
 
 export const SYSTEM_PROGRAM = new PublicKey("11111111111111111111111111111111"); //default

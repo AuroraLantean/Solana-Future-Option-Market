@@ -389,6 +389,8 @@ describe("Future Option Main Test", () => {
 			.accounts({
 				signer: keypair.publicKey,
 				priceUpdate,
+				//systemProgram: anchor.web3.SystemProgram.programId,
+				//clock: anchor.web3.SYSVAR_CLOCK_PUBKEY,
 				//config: configPbk,
 			})
 			.signers([keypair])

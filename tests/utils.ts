@@ -308,7 +308,18 @@ export const svmGetTokenAmt = (svm: LiteSVM, ata: PublicKey) => {
 	ll("decoded.amount:", decoded.amount);
 	return decoded.amount;
 };
-
+export type SolanaAccount = {
+	account: {
+		data: string[];
+		executable: boolean;
+		lamports: number;
+		owner: string;
+		rentEpoch: number;
+		space: number;
+	};
+	pubkey: string;
+};
+//-------------------==
 export const delayFunc = (delay: number): Promise<boolean> =>
 	new Promise((resolve, reject) =>
 		setTimeout(() => {
