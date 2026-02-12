@@ -53,10 +53,10 @@ pub mod future_option_market {
     config.token_program = pubkey[1];
     Ok(())
   }
-  pub fn transfer_lamports(ctx: Context<TransferLamports>, amt: u64) -> Result<()> {
+  pub fn transfer_lamports(ctx: Context<TransferLamports>, _amt: u64) -> Result<()> {
     msg!("transfer_lamports()...");
-    let config = &mut ctx.accounts.config;
-    let time = time()?;
+    let _config = &mut ctx.accounts.config;
+    let _time = time()?;
     Ok(())
   }
   pub fn time_travel(ctx: Context<Timetravel>) -> Result<()> {
@@ -128,7 +128,7 @@ pub mod future_option_market {
   ) -> Result<()> {
     msg!("buy_option()");
     let opt_ctrt = &mut ctx.accounts.opt_ctrt;
-    let config = &mut ctx.accounts.config;
+    let _config = &mut ctx.accounts.config;
     //let time = time()?;
     let user_payment = &mut ctx.accounts.user_payment;
 
@@ -199,7 +199,7 @@ pub mod future_option_market {
   ) -> Result<()> {
     msg!("sell_option()");
     let opt_ctrt = &mut ctx.accounts.opt_ctrt;
-    let config = &mut ctx.accounts.config;
+    let _config = &mut ctx.accounts.config;
     //let time = time()?;
     let user_payment = &mut ctx.accounts.user_payment;
 
