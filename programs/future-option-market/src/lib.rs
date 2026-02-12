@@ -3,6 +3,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{
   transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked,
 };
+use pyth_solana_receiver_sdk::price_update::{get_feed_id_from_hex, PriceUpdateV2};
 //mod err;
 //mod events;
 
@@ -18,6 +19,8 @@ pub const OPTION_SHARES: u128 = 100;
 pub const OPTION_ID_MAX_LEN: usize = 20;
 pub const ASSET_NAME_MAX_LEN: usize = 20;
 pub const LEN: usize = 7;
+pub const MAXIMUM_AGE: u64 = 60; // One minute
+pub const FEED_ID: &str = "0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d"; // SOL/USD price feed id from https://pyth.network/developers/price-feed-ids
 
 fn time() -> Result<u32> {
   let clock = Clock::get().expect("clock time failed");
@@ -230,6 +233,38 @@ pub mod future_option_market {
     transfer_checked(cpi_context, token_amount, decimals)?;
     Ok(())
   }
+  /**  pub fn sell_option(
+    ctx: Context<SellOption>,
+    _option_id: String,
+    opt_ctrt_amount: u64,
+    index: u32,
+  ) -> Result<()> { */
+  pub fn pyth_oracle(ctx: Context<PythOracle>) -> Result<()> {
+    let price_update = &mut ctx.accounts.price_update;
+    // get_price_no_older_than will fail if the price update is more than 30 seconds old
+    let maximum_age: u64 = 30;
+    // get_price_no_older_than will fail if the price update is for a different price feed.
+    // This string is the id of the BTC/USD feed. See https://docs.pyth.network/price-feeds/price-feeds for all available IDs.
+    let feed_id: [u8; 32] =
+      get_feed_id_from_hex("0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43")?;
+    let price = price_update.get_price_no_older_than(&Clock::get()?, maximum_age, &feed_id)?;
+    // Sample output:
+    // The price is (7160106530699 ± 5129162301) * 10^-8
+    msg!(
+      "The price is ({} ± {}) * 10^{}",
+      price.price,
+      price.conf,
+      price.exponent
+    );
+    Ok(())
+  }
+}
+#[derive(Accounts)]
+pub struct PythOracle<'info> {
+  #[account(mut)]
+  pub signer: Signer<'info>,
+  pub price_update: Account<'info, PriceUpdateV2>,
+  // Add more accounts here
 }
 #[derive(Accounts)]
 #[instruction(option_id: String)]

@@ -1,3 +1,4 @@
+import { HermesClient } from "@pythnetwork/hermes-client";
 import { getMint } from "@solana/spl-token";
 import { Connection, clusterApiUrl } from "@solana/web3.js";
 import { address, LAMPORTS_PER_SOL, type SolanaClusterMoniker } from "gill";
@@ -13,15 +14,16 @@ import {
 } from "./backend/gill.ts";
 import { ArbBot, SwapToken } from "./backend/jupiter.ts";
 import { mintNft } from "./backend/nft.ts";
-import {
+/*import {
 	getResponse,
 	type PoolInfoList,
 	radiumSwap,
-} from "./backend/raydium.ts";
+} from "./backend/raydium.ts";*/
 import { ll, usdtMint } from "./tests/utils.ts";
 
 const args = Bun.argv;
 const arg0 = args.length > 2 ? args[2] : "";
+//ll("args:", args);
 
 //Gill https://github.com/DecalLabs/gill
 const customRpcURL = Bun.env.SOLANA_DEVNET_HTTPS1;
@@ -38,9 +40,9 @@ const decimals = 6; //most tokens have 6
 const mint = address(Bun.env.WINGLIONMINT);
 const addr3 = address(Bun.env.SOLANA_ADDR3);
 const addr2 = address(Bun.env.SOLANA_ADDR2);
-ll("mint:", mint);
-ll("addr2:", addr2);
-ll("addr3:", addr3);
+ll("env mint:", mint);
+ll("env addr2:", addr2);
+ll("env addr3:", addr3);
 const RaydiumMainBase = "https://api-v3.raydium.io";
 const RaydiumDevBase = "https://api-v3-devnet.raydium.io";
 const ApiBase = RaydiumMainBase;
@@ -136,7 +138,7 @@ switch (arg0) {
 		}
 		break;
 
-	case "raydium13": //info
+	/*case "raydium13": //info
 		{
 			const endpoint = `${ApiBase}/main/info`;
 			await getResponse(endpoint);
@@ -175,6 +177,14 @@ switch (arg0) {
 			const res = await getResponse(endpoint);
 		}
 		break;
+	case "radium-swap": //
+		{
+			radiumSwap().catch((error) => {
+				console.error("An error occurred during the swap process:");
+				console.error(error);
+			});
+		}
+		break;*/
 	case "bot1": // Quickbook Metis trading API
 		{
 			const defaultConfig = {
@@ -199,17 +209,37 @@ switch (arg0) {
 			await bot.init();
 		}
 		break;
-	case "radium-swap": //
-		{
-			radiumSwap().catch((error) => {
-				console.error("An error occurred during the swap process:");
-				console.error(error);
-			});
-		}
-		break;
 	case "mint-nft": //
 		{
 			mintNft();
+		}
+		break;
+	case "pyth": //
+		{
+			ll("Pyth Pricefeed...");
+			const hermesClient = new HermesClient("https://hermes.pyth.network", {}); // See Hermes endpoints section below for other endpoints
+
+			// You can find the ids of prices at https://pyth.network/developers/price-feed-ids or at hermesClient.getPriceFeeds()
+			const priceIds = [
+				"0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43", // BTC/USD price id
+				"0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace", // ETH/USD price id
+			];
+			const priceFeeds = await hermesClient.getPriceFeeds({
+				query: "btc",
+				assetType: "crypto",
+			});
+			//ll("priceFeeds:", priceFeeds);
+
+			// Latest price updates
+			const priceUpdates = await hermesClient.getLatestPriceUpdates(priceIds);
+			ll("priceUpdates:", priceUpdates);
+			if (priceUpdates.parsed && priceUpdates.parsed.length > 0) {
+				const priceUpdate = priceUpdates.parsed[0];
+				ll("ema_price:", priceUpdate!.ema_price);
+				ll("id:", priceUpdate!.id);
+				ll("metadata", priceUpdate!.metadata);
+				ll("price:", priceUpdate!.price);
+			}
 		}
 		break;
 	default: //bun run index.ts g15
