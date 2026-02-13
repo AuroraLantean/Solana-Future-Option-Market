@@ -27,23 +27,27 @@ ll("addrFutureOption:", addrFutureOption.toBase58());
 export const SYSTEM_PROGRAM = new PublicKey("11111111111111111111111111111111"); //default
 
 //-------------== PriceFeed
-//https://docs.pyth.network/price-feeds/core/price-feeds/price-feed-ids
 export type PriceFeed = {
+	vendor: number;
 	feedId: string;
 	addr: PublicKey;
 	json: SolanaAccount;
 };
+//https://docs.pyth.network/price-feeds/core/price-feeds/price-feed-ids
 export const pythPricefeedBTCUSD: PriceFeed = {
+	vendor: 0,
 	feedId: "0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43",
 	addr: new PublicKey("4cSM2e6rvbGQUFiJbqytoVMi5GgghSMr8LwVrT9VPSPo"),
 	json: jsonPythBTC,
 };
 export const pythPricefeedETHUSD: PriceFeed = {
+	vendor: 0,
 	feedId: "0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace",
 	addr: new PublicKey("42amVS4KgzR9rA28tkVYqVXjq9Qa8dcZQMbH5EYFX6XC"),
 	json: jsonPythETH,
 };
 export const pythPricefeedSOLUSD: PriceFeed = {
+	vendor: 0,
 	feedId: "0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
 	addr: new PublicKey("7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE"),
 	json: jsonPythSOL,

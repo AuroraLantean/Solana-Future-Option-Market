@@ -13,7 +13,7 @@ import {
 	type SimulatedTransactionInfo,
 	TransactionMetadata,
 } from "litesvm";
-import { type SolanaAccount, strToU8Array32 } from "./utils.ts";
+import { decodeHexstrToUint8 } from "./utils.ts";
 import {
 	addrFutureOption,
 	admin,
@@ -49,7 +49,7 @@ export const acctExists = (account: PublicKey) => {
 //-------------== Program Methods
 export const pythOracle = (signer: Keypair, pricefeed: PriceFeed) => {
 	const disc = [121, 193, 165, 234, 80, 102, 132, 189]; //copied from Anchor IDL
-	const argData = [...strToU8Array32(pricefeed.feedId)];
+	const argData = [...decodeHexstrToUint8(pricefeed.feedId)];
 
 	const blockhash = svm.latestBlockhash();
 	const ix = new TransactionInstruction({

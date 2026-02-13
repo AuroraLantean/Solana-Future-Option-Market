@@ -6,7 +6,7 @@ import {
 	setPriceFeedPda,
 	svm,
 } from "./litesvm-utils.ts";
-import { ll, type SolanaAccount } from "./utils.ts";
+import { ll } from "./utils.ts";
 import {
 	hackerKp,
 	type PriceFeed,
@@ -20,7 +20,6 @@ import {
 //clear; jj tts 1
 let signerKp: Keypair;
 let pricefeedPair: PriceFeed;
-let json: SolanaAccount;
 
 test("one transfer", () => {
 	const payer = hackerKp;

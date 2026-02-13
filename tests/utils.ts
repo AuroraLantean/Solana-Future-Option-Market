@@ -347,7 +347,8 @@ export const strToU8Array = (str: string) => {
 	return u8array;
 };
 
-export const strToU8Array32 = (inputStr: string) => {
+/// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array/fromHex
+export const decodeHexstrToUint8 = (inputStr: string) => {
 	//0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43 should yield [230, 45, 246, 200, 180, 168, 95, 225, 166, 125, 180, 77, 193, 45, 229, 219, 51, 15, 122, 198, 107, 114, 220, 101, 138, 254, 223, 15, 74, 65, 91, 67]
 	let str = inputStr;
 	const length = str.length;
