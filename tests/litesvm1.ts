@@ -1,28 +1,26 @@
 import { expect, test } from "bun:test";
-import {
-	type Keypair,
-	type PublicKey,
-	SystemProgram,
-	Transaction,
-} from "@solana/web3.js";
-import jsonPricefeedBTCUSD from "../pricefeedsPyth/BTCUSD.json";
+import { type Keypair, SystemProgram, Transaction } from "@solana/web3.js";
 import {
 	initSolBalc,
 	pythOracle,
 	setPriceFeedPda,
 	svm,
 } from "./litesvm-utils.ts";
-import { ll } from "./utils.ts";
+import { ll, type SolanaAccount } from "./utils.ts";
 import {
-	addrPricefeedBTCUSD,
 	hackerKp,
+	type PriceFeed,
+	pythPricefeedBTCUSD,
+	pythPricefeedETHUSD,
+	pythPricefeedSOLUSD,
 	user1,
 	user1Kp,
 } from "./web3jsSetup.ts";
 
 //clear; jj tts 1
 let signerKp: Keypair;
-let pricefeedAcct: PublicKey;
+let pricefeedPair: PriceFeed;
+let json: SolanaAccount;
 
 test("one transfer", () => {
 	const payer = hackerKp;
@@ -48,17 +46,20 @@ test("one transfer", () => {
 
 test("PythOracle", () => {
 	ll("\n------== PythOracle");
+	ll(
+		"make sure you pull pricefeed account data first into the 'pricefeeds' folder",
+		"and those account data files should be named as pythBTC.json, pythETH.json, pythSOL.json according to web3jsSetup.ts",
+	);
 	signerKp = user1Kp;
-	pricefeedAcct = addrPricefeedBTCUSD;
+	pricefeedPair = pythPricefeedBTCUSD;
+	setPriceFeedPda(pricefeedPair);
+	pythOracle(signerKp, pricefeedPair);
 
-	setPriceFeedPda(pricefeedAcct, jsonPricefeedBTCUSD);
-	pythOracle(signerKp, pricefeedAcct);
+	pricefeedPair = pythPricefeedETHUSD;
+	setPriceFeedPda(pricefeedPair);
+	pythOracle(signerKp, pricefeedPair);
 
-	// const pdaRaw = svm.getAccount(configPDA);
-	// expect(pdaRaw).not.toBeNull();
-	// const rawAccountData = pdaRaw?.data;
-	// ll("rawAccountData:", rawAccountData);
-	// expect(pdaRaw?.owner).toEqual(addrFutureOption);
-
-	//const decoded = solanaKitDecodeConfigDev(rawAccountData);
+	pricefeedPair = pythPricefeedSOLUSD;
+	setPriceFeedPda(pricefeedPair);
+	pythOracle(signerKp, pricefeedPair);
 });

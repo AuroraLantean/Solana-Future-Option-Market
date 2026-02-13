@@ -319,6 +319,49 @@ export type SolanaAccount = {
 	};
 	pubkey: string;
 };
+export const strToU8Fixed = (str: string, size = 32) => {
+	const u8input = strToU8Array(str);
+	const inputLen = u8input.length;
+	if (inputLen > size) throw new Error("fixed size is too small");
+	if (inputLen === size) return u8input;
+
+	const u8out = new Uint8Array(size);
+	//ll("u8out:", u8out);
+	for (let i = 0; i < inputLen; i++) {
+		if (u8out[i] !== undefined && u8input[i] !== undefined) {
+			// biome-ignore lint/style/noNonNullAssertion: <>
+			u8out[i] = u8input[i]!;
+		} else {
+			throw new Error("undefined detected");
+		}
+	}
+	ll("u8out:", u8out);
+	return u8out;
+};
+//ASCII: Each char uses exactly 1 byte(8 bits)
+export const strToU8Array = (str: string) => {
+	const u8array = Uint8Array.from(
+		Array.from(str).map((letter) => letter.charCodeAt(0)),
+	);
+	ll(str, "to u8:", u8array);
+	return u8array;
+};
+
+export const strToU8Array32 = (inputStr: string) => {
+	//0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43 should yield [230, 45, 246, 200, 180, 168, 95, 225, 166, 125, 180, 77, 193, 45, 229, 219, 51, 15, 122, 198, 107, 114, 220, 101, 138, 254, 223, 15, 74, 65, 91, 67]
+	let str = inputStr;
+	const length = str.length;
+	if (length === 66) {
+		str = str.slice(2);
+	} else if (length === 64) {
+	} else {
+		throw new Error("string length invalid");
+	}
+	ll("str:", str);
+	const bytes = Uint8Array.fromHex(str);
+	ll("bytes:", bytes);
+	return bytes;
+};
 //-------------------==
 export const delayFunc = (delay: number): Promise<boolean> =>
 	new Promise((resolve, reject) =>

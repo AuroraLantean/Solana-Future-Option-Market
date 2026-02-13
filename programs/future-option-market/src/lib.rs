@@ -234,24 +234,26 @@ pub mod future_option_market {
     Ok(())
   }
 
-  pub fn pyth_oracle(ctx: Context<PythOracle>) -> Result<()> {
+  pub fn pyth_oracle(ctx: Context<PythOracle>, feed_id: [u8; 32]) -> Result<()> {
     msg!("pyth_oracle process()");
     let price_update = &mut ctx.accounts.price_update;
     // get_price_no_older_than will fail if the price update is more than 30 seconds old
     let maximum_age: u64 = 30;
     // get_price_no_older_than will fail if the price update is for a different price feed.
     // This string is the id of the BTC/USD feed. See https://docs.pyth.network/price-feeds/price-feeds for all available IDs.
-    let feed_id: [u8; 32] =
-      get_feed_id_from_hex("0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43")?;
+    //let feed_id: [u8; 32] =      get_feed_id_from_hex("0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43")?;
+    msg!("feed_id: {:?}", feed_id);
     let price = price_update.get_price_no_older_than(&Clock::get()?, maximum_age, &feed_id)?;
     // Sample output:
     // The price is (7160106530699 ± 5129162301) * 10^-8
     msg!(
       "The price is ({} ± {}) * 10^{}",
       price.price,
-      price.conf,
+      price.conf, //confidence_interval
       price.exponent
     );
+    let asset_price = price.price as f64 * 10f64.powi(price.exponent);
+    msg!("asset_price: {}", asset_price);
     Ok(())
   }
 }
