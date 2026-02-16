@@ -4,7 +4,11 @@ use anchor_spl::token_interface::{
   transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked,
 };
 use pyth_solana_receiver_sdk::price_update::PriceUpdateV2;
-//mod err;
+
+use crate::pda::{AdminPda, Config, OptContract, SimpleAcct, UserPayment, LEN};
+
+mod pda;
+//use pda::*;
 //mod events;
 
 declare_id!("CgZEcSRPh1Ay1EYR4VJPTJRYcRkTDjjZhBAjZ5M8keGp");
@@ -14,11 +18,11 @@ pub const ADMINPDA: &[u8; 22] = b"future_option_adminpda";
 pub const ADMINPDAATA: &[u8; 25] = b"future_option_adminpdaata";
 pub const OPTIONCTRT: &[u8; 22] = b"future_option_contract";
 pub const USERPAYMENT: &[u8; 26] = b"future_option_user_payment";
+pub const SIMPLEACCT: &[u8; 25] = b"future_option_simple_acct";
 
 pub const OPTION_SHARES: u128 = 100;
 pub const OPTION_ID_MAX_LEN: usize = 20;
 pub const ASSET_NAME_MAX_LEN: usize = 20;
-pub const LEN: usize = 7;
 pub const MAXIMUM_AGE: u64 = 60; // One minute
 pub const FEED_ID: &str = "0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d"; // SOL/USD price feed id from https://pyth.network/developers/price-feed-ids
 
@@ -237,32 +241,73 @@ pub mod future_option_market {
   pub fn pyth_oracle(ctx: Context<PythOracle>, feed_id: [u8; 32]) -> Result<()> {
     msg!("pyth_oracle process()");
     let price_update = &mut ctx.accounts.price_update;
+    msg!("write_authority: {}", price_update.write_authority);
+    /*pub enum VerificationLevel {  Partial { num_signatures: u8,},  Full,}} */
+    msg!("verification_level: {:?}", price_update.verification_level);
+    msg!("posted_slot: {:?}", price_update.posted_slot);
+
     // get_price_no_older_than will fail if the price update is more than 30 seconds old
     let maximum_age: u64 = 30;
     // get_price_no_older_than will fail if the price update is for a different price feed.
     // This string is the id of the BTC/USD feed. See https://docs.pyth.network/price-feeds/price-feeds for all available IDs.
+
+    let price_mesg = price_update.price_message;
+    msg!("feed_id: {:?}", price_mesg.feed_id);
+    msg!("price: {:?}", price_mesg.price);
+    msg!("conf: {:?}", price_mesg.conf);
+    msg!("exponent: {:?}", price_mesg.exponent);
+    msg!("publish_time: {}", price_mesg.publish_time);
+    msg!("prev_publish_time: {}", price_mesg.prev_publish_time);
+    /*pub struct PriceFeedMessage {
+      pub feed_id: [u8; 32],
+      pub price: i64,
+      pub conf: u64,
+      pub exponent: i32,
+      pub publish_time: i64,
+      pub prev_publish_time: i64,
+      pub ema_price: i64,
+      pub ema_conf: u64,
+    } */
     //let feed_id: [u8; 32] =      get_feed_id_from_hex("0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43")?;
-    msg!("feed_id: {:?}", feed_id);
+    msg!("feed_id input: {:?}", feed_id);
     let price = price_update.get_price_no_older_than(&Clock::get()?, maximum_age, &feed_id)?;
-    // Sample output:
-    // The price is (7160106530699 ± 5129162301) * 10^-8
     msg!(
       "The price is ({} ± {}) * 10^{}",
       price.price,
       price.conf, //confidence_interval
       price.exponent
-    );
+    ); // (6945902311219 ± 2225688781) * 10^-8
+
     let asset_price = price.price as f64 * 10f64.powi(price.exponent);
     msg!("asset_price: {}", asset_price);
     Ok(())
   }
+  pub fn init_simple_acct(ctx: Context<InitSimpleAccount>, price: u64) -> Result<()> {
+    Ok(())
+  }
 }
 #[derive(Accounts)]
+#[instruction()]
+pub struct InitSimpleAccount<'info> {
+  #[account(
+        init,
+        payer = signer,
+        space = 8 + SimpleAcct::INIT_SPACE,
+        seeds = [SIMPLEACCT],
+        bump
+    )]
+  pub simple_acct: Account<'info, Config>,
+  #[account(mut)]
+  pub signer: Signer<'info>,
+  pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction()]
 pub struct PythOracle<'info> {
   #[account(mut)]
   pub signer: Signer<'info>,
   pub price_update: Account<'info, PriceUpdateV2>,
-  // Add more accounts here
 }
 #[derive(Accounts)]
 #[instruction(option_id: String)]
@@ -317,11 +362,7 @@ pub struct WithdrawToken<'info> {
   pub token_program: Interface<'info, TokenInterface>,
   pub system_program: Program<'info, System>,
 }
-#[account]
-#[derive(InitSpace)]
-pub struct UserPayment {
-  pub payments: [u64; LEN],
-}
+
 #[derive(Accounts)]
 #[instruction(option_id: String)]
 pub struct BuyOption<'info> {
@@ -375,11 +416,7 @@ pub struct InitAdminPda<'info> {
   pub admin: Signer<'info>,
   pub system_program: Program<'info, System>,
 }
-#[account]
-#[derive(InitSpace)]
-pub struct AdminPda {
-  pub sol_balc: u128,
-}
+
 /**  pub is_call: bool,
 pub asset_name: String,
 pub strike_prices: [u128; LEN],, //strike_price
@@ -414,17 +451,6 @@ pub struct NewOption<'info> {
   #[account(mut)]
   pub signer: Signer<'info>,
   pub system_program: Program<'info, System>,
-}
-//pub token_mint: InterfaceAccount<'info, Mint>,
-#[account]
-#[derive(InitSpace)]
-pub struct OptContract {
-  #[max_len(20)]
-  pub asset_name: String,
-  pub is_call: bool,
-  pub strike_prices: [u64; LEN], //strike_price
-  pub ctrt_prices: [u64; LEN], //ask price, price per share to buy 1 contract, but must multiply this by 100 shares to get the premium(total cost)
-  pub expiry_times: [u32; LEN],
 }
 
 #[derive(Accounts)]
@@ -462,19 +488,6 @@ pub struct InitConfig<'info> {
   #[account(mut)]
   pub signer: Signer<'info>,
   pub system_program: Program<'info, System>,
-}
-#[account]
-#[derive(InitSpace)]
-pub struct Config {
-  pub unique: Pubkey,
-  pub owner: Pubkey,
-  pub admin: Pubkey,
-  pub admin_pda: Pubkey,
-  pub admin_pda_ata: Pubkey,
-  pub token_program: Pubkey,
-  pub balance: u128,
-  pub mint: Pubkey,
-  pub time: u32,
 }
 
 #[error_code]
