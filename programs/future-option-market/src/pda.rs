@@ -46,12 +46,12 @@ pub const CONFIG: &[u8; 20] = b"future_option_config";
 #[derive(InitSpace)]
 pub struct Config {
   pub unique: Pubkey,
-  pub owner: Pubkey,
+  pub prog_owner: Pubkey,
   pub admin: Pubkey,
   pub admin_pda: Pubkey,
   pub admin_pda_ata: Pubkey,
   pub token_program: Pubkey,
-  pub balance: u128,
   pub mint: Pubkey,
-  pub time: u32,
+  pub new_u32: u32,
+  pub new_u64: u64,
 }

@@ -15,7 +15,6 @@ import {
 	svm,
 } from "./litesvm-utils.ts";
 import {
-	type ConfigT,
 	getConfig,
 	getSimpleAcct,
 	ll,
@@ -39,12 +38,13 @@ import {
 //clear; jj tts 1
 let keypair: Keypair;
 let signerKp: Keypair;
+let pubkey: PublicKey;
 let mint: PublicKey;
 let pricefeedPair: PriceFeed;
-let config: ConfigT;
-let simpleAcct: SimpleAcctT;
+let newU64: bigint;
 
 import type { FutureOptionMarket } from "../target/types/future_option_market.ts";
+import { solanaKitDecodeConfigDev } from "./decoder.ts";
 
 ll("in litesvm1.ts");
 //const provider = anchor.AnchorProvider.env();
@@ -102,13 +102,24 @@ test("PythOracle", () => {
 	pythOracle(signerKp, pricefeedPair);
 });
 test("init Config", async () => {
+	ll("\n------== init Config");
 	keypair = adminKp;
-	initConfig(keypair, configPbk);
+	pubkey = keypair.publicKey;
+	newU64 = 123n;
+	ll("signer:", keypair.publicKey.toBase58());
+	initConfig(keypair, configPbk, newU64);
 
-	//TODO: decoder for ConfigPbk
-	// expect(config.owner.equals(admin));
-	// expect(config.admin.equals(admin));
-	// expect(config.balance.eq(zero));
+	const pdaRaw = svm.getAccount(configPbk);
+	expect(pdaRaw).not.toBeNull();
+	const rawAccountData = pdaRaw?.data;
+	ll("rawAccountData:", rawAccountData);
+	expect(pdaRaw?.owner).toEqual(pgid);
+
+	const decoded = solanaKitDecodeConfigDev(rawAccountData);
+	expect(decoded.unique).toEqual(pubkey!);
+	expect(decoded.progOwner.equals(pubkey));
+	expect(decoded.admin.equals(pubkey));
+	expect(decoded.newU64).toEqual(newU64);
 });
 test("SimpleAccount", async () => {
 	ll("\n------== SimpleAccount");

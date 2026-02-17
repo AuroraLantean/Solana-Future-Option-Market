@@ -48,9 +48,13 @@ export const acctExists = (account: PublicKey) => {
 	expect(raw).not.toBeNull();
 };
 //-------------== Program Methods
-export const initConfig = (signer: Keypair, config: PublicKey) => {
+export const initConfig = (
+	signer: Keypair,
+	config: PublicKey,
+	newU64: bigint,
+) => {
 	const disc = [23, 235, 115, 232, 168, 96, 1, 231]; //copied from Anchor IDL
-	const argData = [0];
+	const argData = [...numToBytes(newU64)];
 	//const argData = [unique, tokenProg];
 
 	const blockhash = svm.latestBlockhash();
@@ -65,7 +69,26 @@ export const initConfig = (signer: Keypair, config: PublicKey) => {
 	});
 	sendTxns(svm, blockhash, [ix], [signer]);
 };
+export const initSimpleAcct = (
+	signer: Keypair,
+	simpleAcctPDA: PublicKey,
+	price: bigint,
+) => {
+	const disc = Uint8Array.from([70, 220, 86, 48, 234, 178, 26, 125]); //copied from Anchor IDL
+	const argData = [...numToBytes(price)];
 
+	const blockhash = svm.latestBlockhash();
+	const ix = new TransactionInstruction({
+		keys: [
+			{ pubkey: simpleAcctPDA, isSigner: false, isWritable: true },
+			{ pubkey: signer.publicKey, isSigner: true, isWritable: true },
+			{ pubkey: SYSTEM_PROGRAM, isSigner: false, isWritable: false },
+		],
+		programId: addrFutureOption,
+		data: Buffer.from([...disc, ...argData]),
+	});
+	sendTxns(svm, blockhash, [ix], [signer]);
+};
 export const pythOracle = (signer: Keypair, pricefeed: PriceFeed) => {
 	const disc = [121, 193, 165, 234, 80, 102, 132, 189]; //copied from Anchor IDL
 	const argData = [...decodeHexstrToUint8(pricefeed.feedId)];

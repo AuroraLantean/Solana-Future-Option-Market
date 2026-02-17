@@ -52,17 +52,6 @@ export const bigSol = (amt: number) => BigInt(LAMPORTS_PER_SOL * amt);
 export const bnTok = (uiAmount: number, decimals: number) =>
 	ten.pow(bn(decimals)).mul(bn(uiAmount));
 
-export type ConfigT = {
-	unique: PublicKey;
-	owner: PublicKey;
-	admin: PublicKey;
-	adminPda: PublicKey;
-	adminPdaAta: PublicKey;
-	tokenProgram: PublicKey;
-	balance: ABN;
-	mint: PublicKey;
-	time: number;
-};
 export type SimpleAcctT = {
 	//owner: PublicKey;
 	price: ABN;

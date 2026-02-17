@@ -12,7 +12,6 @@ import {
 	balcToken,
 	bn,
 	bnTok,
-	type ConfigT,
 	getAdminPda,
 	getAdminPdaata,
 	getConfig,
@@ -32,8 +31,9 @@ import {
 	week,
 	zero,
 } from "./utils.ts";
+import type { ConfigAcctT } from "./web3jsSetup.ts";
 
-let config: ConfigT;
+let config: ConfigAcctT;
 let optCtrt: OptCtrtT;
 let adminPda: AdminPdaT;
 let user1Payment: UserPaymentT;
@@ -107,7 +107,7 @@ describe("Future Option Main Test", () => {
 	it("init Config", async () => {
 		keypair = adminKp;
 		tx = await program.methods
-			.initConfig([unique, tokenProg])
+			.initConfig()
 			.accounts({
 				mint: usdtMint,
 				//config: configPbk,
@@ -118,8 +118,8 @@ describe("Future Option Main Test", () => {
 		ll("config init tx", tx);
 		config = await program.account.config.fetch(configPbk);
 		//ll("config:", JSON.stringify(config));
-		expect(config.owner.equals(wallet));
-		expect(config.balance.eq(zero));
+		expect(config.progOwner.equals(wallet));
+		//expect(config.newU64.eq(zero));
 	});
 
 	it("Owner: New Call Option", async () => {

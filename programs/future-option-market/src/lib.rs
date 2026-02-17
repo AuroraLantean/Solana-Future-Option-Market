@@ -47,14 +47,17 @@ pub mod future_option_market {
 
   use super::*;
 
-  pub fn init_config(ctx: Context<InitConfig>) -> Result<()> {
+  pub fn init_config(ctx: Context<InitConfig>, new_u64: u64) -> Result<()> {
     //pubkey: [Pubkey; 2]
     msg!("initialize with prog_id: {:?}", ctx.program_id);
+    let signer = ctx.accounts.signer.key();
+    msg!("signer: {:?}", signer);
     let config = &mut ctx.accounts.config;
-    config.owner = ctx.accounts.signer.key();
-    config.admin = ctx.accounts.signer.key();
+    config.unique = signer;
+    config.prog_owner = signer;
+    config.admin = signer;
+    config.new_u64 = new_u64;
     //config.mint = ctx.accounts.mint.key();
-    //config.unique = pubkey[0];
     //config.mint = ctx.accounts.mint.key();
     //config.token_program = pubkey[1];
     Ok(())
@@ -62,14 +65,13 @@ pub mod future_option_market {
   pub fn transfer_lamports(ctx: Context<TransferLamports>, _amt: u64) -> Result<()> {
     msg!("transfer_lamports()...");
     let _config = &mut ctx.accounts.config;
-    let _time = time()?;
     Ok(())
   }
   pub fn time_travel(ctx: Context<Timetravel>) -> Result<()> {
     msg!("time_travel()...");
     let config = &mut ctx.accounts.config;
     let time = time()?;
-    config.time = time;
+    config.new_u32 = time;
     Ok(())
   }
   pub fn new_option(

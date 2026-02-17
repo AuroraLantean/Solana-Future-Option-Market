@@ -26,6 +26,18 @@ export const addrFutureOption = new PublicKey(
 ll("addrFutureOption:", addrFutureOption.toBase58());
 export const SYSTEM_PROGRAM = new PublicKey("11111111111111111111111111111111"); //default
 
+//-------------== Config
+export type ConfigAcctT = {
+	unique: PublicKey;
+	progOwner: PublicKey;
+	admin: PublicKey;
+	adminPda: PublicKey;
+	adminPdaAta: PublicKey;
+	tokenProgram: PublicKey;
+	mint: PublicKey;
+	newU32: number;
+	newU64: bigint;
+};
 //-------------== PriceFeed
 export type PriceFeed = {
 	vendor: number;
