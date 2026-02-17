@@ -1,5 +1,12 @@
 import type * as anchor from "@coral-xyz/anchor";
 import {
+	getLamportsEncoder,
+	getU8Encoder,
+	getU32Encoder,
+	getU64Encoder,
+	lamports,
+} from "@solana/kit";
+import {
 	ACCOUNT_SIZE,
 	AccountLayout,
 	createMint,
@@ -46,9 +53,20 @@ export const bnTok = (uiAmount: number, decimals: number) =>
 	ten.pow(bn(decimals)).mul(bn(uiAmount));
 
 export type ConfigT = {
+	unique: PublicKey;
 	owner: PublicKey;
+	admin: PublicKey;
+	adminPda: PublicKey;
+	adminPdaAta: PublicKey;
+	tokenProgram: PublicKey;
 	balance: ABN;
+	mint: PublicKey;
 	time: number;
+};
+export type SimpleAcctT = {
+	//owner: PublicKey;
+	price: ABN;
+	//time: number;
 };
 export type OptCtrtT = {
 	assetName: string;
@@ -63,13 +81,13 @@ export type UserPaymentT = {
 export type AdminPdaT = {
 	solBalc: ABN;
 };
-
-export const getConfig = (programId: PublicKey, pdaName: string): PublicKey => {
+//-----------== PDA
+export const getConfig = (programId: PublicKey): PublicKey => {
 	const [publickey, bump] = PublicKey.findProgramAddressSync(
 		[Buffer.from("future_option_config")],
 		programId,
 	);
-	ll(pdaName, ":", publickey.toBase58());
+	ll("Config:", publickey.toBase58());
 	return publickey;
 };
 export const getOptCtrt = (
@@ -125,6 +143,19 @@ export const getUserPayment = (
 	ll(pdaName, ":", publickey.toBase58());
 	return publickey;
 };
+export const getSimpleAcct = (programId: PublicKey): PublicKey => {
+	const [publickey, bump] = PublicKey.findProgramAddressSync(
+		[
+			Buffer.from("future_option_simple_acct"),
+			//user.toBuffer(),
+			//opt_ctrt.toBuffer(),
+		],
+		programId,
+	);
+	ll("SimpleAcct:", publickey.toBase58());
+	return publickey;
+};
+//-----------==
 export const getPremium = (optCtrtAmtBn: ABN, ctrtPrice: ABN | undefined) => {
 	if (!ctrtPrice) throw new Error("ctrtPrice is null");
 	return optCtrtAmtBn.mul(bn(100)).mul(ctrtPrice);
@@ -318,6 +349,33 @@ export type SolanaAccount = {
 		space: number;
 	};
 	pubkey: string;
+};
+//-------------==
+export const numToBytes = (input: bigint | number, bit = 64) => {
+	let amtBigint = 0n;
+	if (typeof input === "number") {
+		if (input < 0) throw new Error("input < 0");
+		amtBigint = BigInt(input);
+	} else {
+		if (input < 0n) throw new Error("input < 0");
+		amtBigint = input;
+	}
+	const amtLam = lamports(amtBigint);
+	// biome-ignore lint/suspicious/noExplicitAny: <>
+	let lamportsEncoder: any;
+	if (bit === 64) {
+		lamportsEncoder = getLamportsEncoder(getU64Encoder());
+	} else if (bit === 32) {
+		lamportsEncoder = getLamportsEncoder(getU32Encoder());
+	} else if (bit === 8) {
+		lamportsEncoder = getLamportsEncoder(getU8Encoder());
+	} else {
+		throw new Error("bit unknown");
+		//lamportsEncoder = getDefaultLamportsEncoder()
+	}
+	const u8Bytes: Uint8Array = lamportsEncoder.encode(amtLam);
+	ll("u8Bytes", u8Bytes);
+	return u8Bytes;
 };
 export const strToU8Fixed = (str: string, size = 32) => {
 	const u8input = strToU8Array(str);

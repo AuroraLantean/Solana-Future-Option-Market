@@ -90,7 +90,7 @@ describe("Future Option Main Test", () => {
 	const user2Kp = new Keypair();
 	const user2 = user2Kp.publicKey;
 
-	configPbk = getConfig(pgid, "config");
+	configPbk = getConfig(pgid);
 
 	before(async () => {
 		await balcSOL(conn, wallet, "wallet");

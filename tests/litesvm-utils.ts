@@ -13,13 +13,14 @@ import {
 	type SimulatedTransactionInfo,
 	TransactionMetadata,
 } from "litesvm";
-import { decodeHexstrToUint8 } from "./utils.ts";
+import { decodeHexstrToUint8, numToBytes, usdtMint } from "./utils.ts";
 import {
 	addrFutureOption,
 	admin,
 	hacker,
 	owner,
 	type PriceFeed,
+	SYSTEM_PROGRAM,
 	user1,
 	user2,
 	user3,
@@ -47,6 +48,24 @@ export const acctExists = (account: PublicKey) => {
 	expect(raw).not.toBeNull();
 };
 //-------------== Program Methods
+export const initConfig = (signer: Keypair, config: PublicKey) => {
+	const disc = [23, 235, 115, 232, 168, 96, 1, 231]; //copied from Anchor IDL
+	const argData = [0];
+	//const argData = [unique, tokenProg];
+
+	const blockhash = svm.latestBlockhash();
+	const ix = new TransactionInstruction({
+		keys: [
+			{ pubkey: config, isSigner: false, isWritable: true },
+			{ pubkey: signer.publicKey, isSigner: true, isWritable: true },
+			{ pubkey: SYSTEM_PROGRAM, isSigner: false, isWritable: false },
+		],
+		programId: addrFutureOption,
+		data: Buffer.from([...disc, ...argData]),
+	});
+	sendTxns(svm, blockhash, [ix], [signer]);
+};
+
 export const pythOracle = (signer: Keypair, pricefeed: PriceFeed) => {
 	const disc = [121, 193, 165, 234, 80, 102, 132, 189]; //copied from Anchor IDL
 	const argData = [...decodeHexstrToUint8(pricefeed.feedId)];
@@ -101,6 +120,7 @@ export const deployProgram = (computeMaxUnits?: bigint) => {
 };
 deployProgram();
 acctExists(addrFutureOption);
+ll("program deployment is successful");
 
 //---------------==
 export const sendTxns = (

@@ -2,7 +2,7 @@
 use anchor_lang::prelude::*;
 
 pub const LEN: usize = 7;
-
+pub const SIMPLEACCT: &[u8; 25] = b"future_option_simple_acct";
 #[account]
 #[derive(InitSpace)]
 pub struct SimpleAcct {
@@ -12,18 +12,24 @@ pub struct SimpleAcct {
   //pub is_call: bool,
   //pub price: u64, //strike_price
   //pub ctrt_prices: [u64; LEN],
+  //pub owner: Pubkey
 }
 
+pub const USERPAYMENT: &[u8; 26] = b"future_option_user_payment";
 #[account]
 #[derive(InitSpace)]
 pub struct UserPayment {
   pub payments: [u64; LEN],
 }
+pub const ADMINPDAATA: &[u8; 25] = b"future_option_adminpdaata";
+
+pub const ADMINPDA: &[u8; 22] = b"future_option_adminpda";
 #[account]
 #[derive(InitSpace)]
 pub struct AdminPda {
   pub sol_balc: u128,
 }
+pub const OPTIONCTRT: &[u8; 22] = b"future_option_contract";
 //pub token_mint: InterfaceAccount<'info, Mint>,
 #[account]
 #[derive(InitSpace)]
@@ -35,6 +41,7 @@ pub struct OptContract {
   pub ctrt_prices: [u64; LEN], //ask price, price per share to buy 1 contract, but must multiply this by 100 shares to get the premium(total cost)
   pub expiry_times: [u32; LEN],
 }
+pub const CONFIG: &[u8; 20] = b"future_option_config";
 #[account]
 #[derive(InitSpace)]
 pub struct Config {

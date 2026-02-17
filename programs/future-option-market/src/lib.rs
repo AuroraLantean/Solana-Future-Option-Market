@@ -5,20 +5,16 @@ use anchor_spl::token_interface::{
 };
 use pyth_solana_receiver_sdk::price_update::PriceUpdateV2;
 
-use crate::pda::{AdminPda, Config, OptContract, SimpleAcct, UserPayment, LEN};
+use crate::pda::{
+  AdminPda, Config, OptContract, SimpleAcct, UserPayment, ADMINPDA, ADMINPDAATA, CONFIG, LEN,
+  OPTIONCTRT, SIMPLEACCT, USERPAYMENT,
+};
 
 mod pda;
 //use pda::*;
 //mod events;
 
 declare_id!("CgZEcSRPh1Ay1EYR4VJPTJRYcRkTDjjZhBAjZ5M8keGp");
-
-pub const CONFIG: &[u8; 20] = b"future_option_config";
-pub const ADMINPDA: &[u8; 22] = b"future_option_adminpda";
-pub const ADMINPDAATA: &[u8; 25] = b"future_option_adminpdaata";
-pub const OPTIONCTRT: &[u8; 22] = b"future_option_contract";
-pub const USERPAYMENT: &[u8; 26] = b"future_option_user_payment";
-pub const SIMPLEACCT: &[u8; 25] = b"future_option_simple_acct";
 
 pub const OPTION_SHARES: u128 = 100;
 pub const OPTION_ID_MAX_LEN: usize = 20;
@@ -47,17 +43,20 @@ fn get_premium(opt_ctrt_amount: u64, ctrt_price: u64) -> Result<u64> {
 #[program]
 pub mod future_option_market {
 
+  use crate::pda::ADMINPDA;
+
   use super::*;
 
-  pub fn init_config(ctx: Context<InitConfig>, pubkey: [Pubkey; 2]) -> Result<()> {
+  pub fn init_config(ctx: Context<InitConfig>) -> Result<()> {
+    //pubkey: [Pubkey; 2]
     msg!("initialize with prog_id: {:?}", ctx.program_id);
     let config = &mut ctx.accounts.config;
     config.owner = ctx.accounts.signer.key();
     config.admin = ctx.accounts.signer.key();
     //config.mint = ctx.accounts.mint.key();
-    config.unique = pubkey[0];
-    config.mint = ctx.accounts.mint.key();
-    config.token_program = pubkey[1];
+    //config.unique = pubkey[0];
+    //config.mint = ctx.accounts.mint.key();
+    //config.token_program = pubkey[1];
     Ok(())
   }
   pub fn transfer_lamports(ctx: Context<TransferLamports>, _amt: u64) -> Result<()> {
@@ -283,6 +282,10 @@ pub mod future_option_market {
     Ok(())
   }
   pub fn init_simple_acct(ctx: Context<InitSimpleAccount>, price: u64) -> Result<()> {
+    msg!("init_simple_acct: {:?}", ctx.program_id);
+    let simple_acct = &mut ctx.accounts.simple_acct;
+    simple_acct.price = price;
+    //simple_acct.addr = ctx.accounts.signer.key();
     Ok(())
   }
 }
@@ -296,7 +299,7 @@ pub struct InitSimpleAccount<'info> {
         seeds = [SIMPLEACCT],
         bump
     )]
-  pub simple_acct: Account<'info, Config>,
+  pub simple_acct: Account<'info, SimpleAcct>,
   #[account(mut)]
   pub signer: Signer<'info>,
   pub system_program: Program<'info, System>,
@@ -484,7 +487,8 @@ pub struct InitConfig<'info> {
         bump
     )]
   pub config: Account<'info, Config>,
-  pub mint: InterfaceAccount<'info, Mint>,
+  //pub mint: InterfaceAccount<'info, Mint>,
+  //pub token_program: Interface<'info, TokenInterface>,
   #[account(mut)]
   pub signer: Signer<'info>,
   pub system_program: Program<'info, System>,

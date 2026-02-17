@@ -1,13 +1,32 @@
 import { expect, test } from "bun:test";
-import { type Keypair, SystemProgram, Transaction } from "@solana/web3.js";
+import * as anchor from "@coral-xyz/anchor";
 import {
+	type Keypair,
+	type PublicKey,
+	SystemProgram,
+	Transaction,
+} from "@solana/web3.js";
+import {
+	initConfig,
+	initSimpleAcct,
 	initSolBalc,
 	pythOracle,
 	setPriceFeedPda,
 	svm,
 } from "./litesvm-utils.ts";
-import { ll } from "./utils.ts";
 import {
+	type ConfigT,
+	getConfig,
+	getSimpleAcct,
+	ll,
+	type SimpleAcctT,
+	tokenProg,
+	usdtMint,
+	zero,
+} from "./utils.ts";
+import {
+	admin,
+	adminKp,
 	hackerKp,
 	type PriceFeed,
 	pythPricefeedBTCUSD,
@@ -18,8 +37,28 @@ import {
 } from "./web3jsSetup.ts";
 
 //clear; jj tts 1
+let keypair: Keypair;
 let signerKp: Keypair;
+let mint: PublicKey;
 let pricefeedPair: PriceFeed;
+let config: ConfigT;
+let simpleAcct: SimpleAcctT;
+
+import type { FutureOptionMarket } from "../target/types/future_option_market.ts";
+
+ll("in litesvm1.ts");
+//const provider = anchor.AnchorProvider.env();
+//anchor.setProvider(provider);
+const program = anchor.workspace
+	.futureOptionMarket as anchor.Program<FutureOptionMarket>;
+//const wat = provider.wallet as anchor.Wallet;
+//const wallet = wat.publicKey;
+//ll("wallet:", wallet.toBase58());
+
+const pgid = program.programId;
+
+const configPbk = getConfig(pgid);
+const simpleAcctPbk = getSimpleAcct(pgid);
 
 test("one transfer", () => {
 	const payer = hackerKp;
@@ -61,4 +100,18 @@ test("PythOracle", () => {
 	pricefeedPair = pythPricefeedSOLUSD;
 	setPriceFeedPda(pricefeedPair);
 	pythOracle(signerKp, pricefeedPair);
+});
+test("init Config", async () => {
+	keypair = adminKp;
+	initConfig(keypair, configPbk);
+
+	//TODO: decoder for ConfigPbk
+	// expect(config.owner.equals(admin));
+	// expect(config.admin.equals(admin));
+	// expect(config.balance.eq(zero));
+});
+test("SimpleAccount", async () => {
+	ll("\n------== SimpleAccount");
+	const price = 1900n;
+	initSimpleAcct(adminKp, simpleAcctPbk, price);
 });
