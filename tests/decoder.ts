@@ -101,3 +101,39 @@ export type ConfigAcctDev = {
 	newU32: number;
 	newU64: bigint;
 };
+//---------------== SimpleAcctPDA
+export type SimpleAcct = {
+	anchorDiscriminator: ReadonlyUint8Array;
+	price: bigint;
+}; //padding: bigint[];
+export const simpleAcctDecoder: FixedSizeDecoder<SimpleAcct> = getStructDecoder(
+	[
+		["anchorDiscriminator", fixDecoderSize(getBytesDecoder(), 8)], //only for accounts made by Anchor
+		["price", getU64Decoder()],
+		//["padding", getArrayDecoder(getU64Decoder(), { size: 3 })],
+	],
+);
+export const solanaKitDecodeSimpleAcct = (
+	bytes: ReadonlyUint8Array | Uint8Array<ArrayBufferLike>,
+	isVerbose = false,
+) => {
+	const decoded = simpleAcctDecoder.decode(bytes);
+	if (isVerbose) {
+		ll("price:", decoded.price);
+	}
+	return decoded;
+};
+// This below is only used for testing as it is outputing PublicKey, not Address
+export const solanaKitDecodeSimpleAcctDev = (
+	bytes: ReadonlyUint8Array | Uint8Array<ArrayBufferLike> | undefined,
+) => {
+	if (!bytes) throw new Error("bytes invalid");
+	const decoded = solanaKitDecodeSimpleAcct(bytes, true);
+	const decodedV1: SimpleAcctDev = {
+		price: decoded.price,
+	};
+	return decodedV1;
+};
+export type SimpleAcctDev = {
+	price: bigint;
+};

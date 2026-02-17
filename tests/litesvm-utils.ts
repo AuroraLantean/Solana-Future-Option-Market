@@ -13,7 +13,7 @@ import {
 	type SimulatedTransactionInfo,
 	TransactionMetadata,
 } from "litesvm";
-import { decodeHexstrToUint8, numToBytes, usdtMint } from "./utils.ts";
+import { decodeHexstrToUint8, numToBytes } from "./utils.ts";
 import {
 	addrFutureOption,
 	admin,

@@ -14,17 +14,8 @@ import {
 	setPriceFeedPda,
 	svm,
 } from "./litesvm-utils.ts";
+import { getConfig, getSimpleAcct, ll } from "./utils.ts";
 import {
-	getConfig,
-	getSimpleAcct,
-	ll,
-	type SimpleAcctT,
-	tokenProg,
-	usdtMint,
-	zero,
-} from "./utils.ts";
-import {
-	admin,
 	adminKp,
 	hackerKp,
 	type PriceFeed,
@@ -39,12 +30,14 @@ import {
 let keypair: Keypair;
 let signerKp: Keypair;
 let pubkey: PublicKey;
-let mint: PublicKey;
 let pricefeedPair: PriceFeed;
 let newU64: bigint;
 
 import type { FutureOptionMarket } from "../target/types/future_option_market.ts";
-import { solanaKitDecodeConfigDev } from "./decoder.ts";
+import {
+	solanaKitDecodeConfigDev,
+	solanaKitDecodeSimpleAcctDev,
+} from "./decoder.ts";
 
 ll("in litesvm1.ts");
 //const provider = anchor.AnchorProvider.env();
@@ -116,13 +109,22 @@ test("init Config", async () => {
 	expect(pdaRaw?.owner).toEqual(pgid);
 
 	const decoded = solanaKitDecodeConfigDev(rawAccountData);
-	expect(decoded.unique).toEqual(pubkey!);
-	expect(decoded.progOwner.equals(pubkey));
-	expect(decoded.admin.equals(pubkey));
+	expect(decoded.unique).toEqual(pubkey);
+	expect(decoded.progOwner).toEqual(pubkey);
+	expect(decoded.admin).toEqual(pubkey);
 	expect(decoded.newU64).toEqual(newU64);
 });
 test("SimpleAccount", async () => {
 	ll("\n------== SimpleAccount");
 	const price = 1900n;
 	initSimpleAcct(adminKp, simpleAcctPbk, price);
+
+	const pdaRaw = svm.getAccount(simpleAcctPbk);
+	expect(pdaRaw).not.toBeNull();
+	const rawAccountData = pdaRaw?.data;
+	ll("rawAccountData:", rawAccountData);
+	expect(pdaRaw?.owner).toEqual(pgid);
+
+	const decoded = solanaKitDecodeSimpleAcctDev(rawAccountData);
+	expect(decoded.price).toEqual(price);
 });
