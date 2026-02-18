@@ -104,11 +104,13 @@ export type ConfigAcctDev = {
 //---------------== SimpleAcctPDA
 export type SimpleAcct = {
 	anchorDiscriminator: ReadonlyUint8Array;
+	writeAuthority: Address;
 	price: bigint;
 }; //padding: bigint[];
 export const simpleAcctDecoder: FixedSizeDecoder<SimpleAcct> = getStructDecoder(
 	[
 		["anchorDiscriminator", fixDecoderSize(getBytesDecoder(), 8)], //only for accounts made by Anchor
+		["writeAuthority", getAddressDecoder()],
 		["price", getU64Decoder()],
 		//["padding", getArrayDecoder(getU64Decoder(), { size: 3 })],
 	],
@@ -119,6 +121,7 @@ export const solanaKitDecodeSimpleAcct = (
 ) => {
 	const decoded = simpleAcctDecoder.decode(bytes);
 	if (isVerbose) {
+		ll("writeAuthority:", decoded.writeAuthority);
 		ll("price:", decoded.price);
 	}
 	return decoded;
@@ -130,10 +133,12 @@ export const solanaKitDecodeSimpleAcctDev = (
 	if (!bytes) throw new Error("bytes invalid");
 	const decoded = solanaKitDecodeSimpleAcct(bytes, true);
 	const decodedV1: SimpleAcctDev = {
+		writeAuthority: new PublicKey(decoded.writeAuthority.toString()),
 		price: decoded.price,
 	};
 	return decodedV1;
 };
 export type SimpleAcctDev = {
+	writeAuthority: PublicKey;
 	price: bigint;
 };

@@ -15,8 +15,8 @@ import {
 } from "litesvm";
 import { decodeHexstrToUint8, numToBytes } from "./utils.ts";
 import {
-	addrFutureOption,
 	admin,
+	futureOptionAddr,
 	hacker,
 	owner,
 	type PriceFeed,
@@ -64,7 +64,7 @@ export const initConfig = (
 			{ pubkey: signer.publicKey, isSigner: true, isWritable: true },
 			{ pubkey: SYSTEM_PROGRAM, isSigner: false, isWritable: false },
 		],
-		programId: addrFutureOption,
+		programId: futureOptionAddr,
 		data: Buffer.from([...disc, ...argData]),
 	});
 	sendTxns(svm, blockhash, [ix], [signer]);
@@ -84,7 +84,7 @@ export const initSimpleAcct = (
 			{ pubkey: signer.publicKey, isSigner: true, isWritable: true },
 			{ pubkey: SYSTEM_PROGRAM, isSigner: false, isWritable: false },
 		],
-		programId: addrFutureOption,
+		programId: futureOptionAddr,
 		data: Buffer.from([...disc, ...argData]),
 	});
 	sendTxns(svm, blockhash, [ix], [signer]);
@@ -99,7 +99,7 @@ export const pythOracle = (signer: Keypair, pricefeed: PriceFeed) => {
 			{ pubkey: signer.publicKey, isSigner: true, isWritable: true },
 			{ pubkey: pricefeed.addr, isSigner: false, isWritable: true },
 		],
-		programId: addrFutureOption,
+		programId: futureOptionAddr,
 		data: Buffer.from([...disc, ...argData]),
 	});
 	sendTxns(svm, blockhash, [ix], [signer]);
@@ -138,11 +138,11 @@ export const deployProgram = (computeMaxUnits?: bigint) => {
 	//# Dump a program from mainnet
 	//solana program dump progAddr pyth.so --url mainnet-beta
 
-	svm.addProgramFromFile(addrFutureOption, programPath);
+	svm.addProgramFromFile(futureOptionAddr, programPath);
 	//return [programId];
 };
 deployProgram();
-acctExists(addrFutureOption);
+acctExists(futureOptionAddr);
 ll("program deployment is successful");
 
 //---------------==
@@ -152,7 +152,7 @@ export const sendTxns = (
 	ixs: TransactionInstruction[],
 	signerKps: Keypair[],
 	expectedError = "",
-	programId = addrFutureOption,
+	programId = futureOptionAddr,
 ) => {
 	const tx = new Transaction();
 	tx.recentBlockhash = blockhash;

@@ -286,8 +286,8 @@ pub mod future_option_market {
   pub fn init_simple_acct(ctx: Context<InitSimpleAccount>, price: u64) -> Result<()> {
     msg!("init_simple_acct: {:?}", ctx.program_id);
     let simple_acct = &mut ctx.accounts.simple_acct;
+    simple_acct.write_authority = ctx.accounts.signer.key();
     simple_acct.price = price;
-    //simple_acct.addr = ctx.accounts.signer.key();
     Ok(())
   }
 }

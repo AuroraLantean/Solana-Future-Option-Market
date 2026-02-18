@@ -116,8 +116,10 @@ test("init Config", async () => {
 });
 test("SimpleAccount", async () => {
 	ll("\n------== SimpleAccount");
-	const price = 1900n;
-	initSimpleAcct(adminKp, simpleAcctPbk, price);
+	ll("simpleAcctPbk:", simpleAcctPbk.toBase58());
+	keypair = adminKp;
+	const price = 73200n;
+	initSimpleAcct(keypair, simpleAcctPbk, price);
 
 	const pdaRaw = svm.getAccount(simpleAcctPbk);
 	expect(pdaRaw).not.toBeNull();
@@ -126,5 +128,6 @@ test("SimpleAccount", async () => {
 	expect(pdaRaw?.owner).toEqual(pgid);
 
 	const decoded = solanaKitDecodeSimpleAcctDev(rawAccountData);
+	expect(decoded.writeAuthority).toEqual(keypair.publicKey);
 	expect(decoded.price).toEqual(price);
 });

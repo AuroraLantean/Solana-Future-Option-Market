@@ -20,10 +20,16 @@ export const user2 = user2Kp.publicKey;
 export const user3 = user3Kp.publicKey;
 export const hacker = hackerKp.publicKey;
 
-export const addrFutureOption = new PublicKey(
+export const futureOptionAddr = new PublicKey(
 	"CgZEcSRPh1Ay1EYR4VJPTJRYcRkTDjjZhBAjZ5M8keGp",
 );
-ll("addrFutureOption:", addrFutureOption.toBase58());
+ll("futureOptionAddr:", futureOptionAddr.toBase58());
+export const usdtMint = new PublicKey(
+	"Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+);
+export const usdcMint = new PublicKey(
+	"EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+);
 export const SYSTEM_PROGRAM = new PublicKey("11111111111111111111111111111111"); //default
 
 //-------------== Config

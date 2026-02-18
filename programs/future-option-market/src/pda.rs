@@ -6,13 +6,15 @@ pub const SIMPLEACCT: &[u8; 25] = b"future_option_simple_acct";
 #[account]
 #[derive(InitSpace)]
 pub struct SimpleAcct {
+  pub write_authority: Pubkey, // 32 bytes
   pub price: u64,
+  //verification_level: VerificationLevel, // 2 bytes
+  //price_message: PriceFeedMessage, // 32 + 8 + 8 + 4 + 8 + 8
+  //posted_slot: u64
   //#[max_len(20)]
   //pub asset_name: String,
   //pub is_call: bool,
-  //pub price: u64, //strike_price
   //pub ctrt_prices: [u64; LEN],
-  //pub owner: Pubkey
 }
 
 pub const USERPAYMENT: &[u8; 26] = b"future_option_user_payment";
