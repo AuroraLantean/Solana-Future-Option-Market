@@ -297,7 +297,7 @@ pub struct InitSimpleAccount<'info> {
   #[account(
         init,
         payer = signer,
-        space = 8 + SimpleAcct::INIT_SPACE,
+        space = 8 + 40,//SimpleAcct::INIT_SPACE,
         seeds = [SIMPLEACCT],
         bump
     )]

@@ -1,16 +1,25 @@
 #![allow(unexpected_cfgs)]
-use anchor_lang::prelude::*;
+use anchor_lang::prelude::{borsh::BorshSchema, *};
 
 pub const LEN: usize = 7;
 pub const SIMPLEACCT: &[u8; 25] = b"future_option_simple_acct";
-#[account]
-#[derive(InitSpace)]
+
+#[derive(AnchorSerialize, AnchorDeserialize, Copy, Clone, PartialEq, BorshSchema, Debug)]
+pub enum VerificationLevel {
+  Partial {
+    #[allow(unused)]
+    num_signatures: u8,
+  },
+  Full,
+}
+#[account] //#[derive(InitSpace)]
+#[derive(BorshSchema)]
 pub struct SimpleAcct {
   pub write_authority: Pubkey, // 32 bytes
-  pub price: u64,
-  //verification_level: VerificationLevel, // 2 bytes
+  //pub verification_level:  VerificationLevel, // 2 bytes
   //price_message: PriceFeedMessage, // 32 + 8 + 8 + 4 + 8 + 8
   //posted_slot: u64
+  pub price: u64,
   //#[max_len(20)]
   //pub asset_name: String,
   //pub is_call: bool,

@@ -27,10 +27,9 @@ import {
 } from "./web3jsSetup.ts";
 
 //clear; jj tts 1
-let keypair: Keypair;
 let signerKp: Keypair;
-let pubkey: PublicKey;
-let pricefeedPair: PriceFeed;
+let signer: PublicKey;
+let pricefeed: PriceFeed;
 let newU64: bigint;
 
 import type { FutureOptionMarket } from "../target/types/future_option_market.ts";
@@ -82,25 +81,25 @@ test("PythOracle", () => {
 		"and those account data files should be named as pythBTC.json, pythETH.json, pythSOL.json according to web3jsSetup.ts",
 	);
 	signerKp = user1Kp;
-	pricefeedPair = pythPricefeedBTCUSD;
-	setPriceFeedPda(pricefeedPair);
-	pythOracle(signerKp, pricefeedPair);
+	pricefeed = pythPricefeedBTCUSD;
+	setPriceFeedPda(pricefeed);
+	pythOracle(signerKp, pricefeed);
 
-	pricefeedPair = pythPricefeedETHUSD;
-	setPriceFeedPda(pricefeedPair);
-	pythOracle(signerKp, pricefeedPair);
+	pricefeed = pythPricefeedETHUSD;
+	setPriceFeedPda(pricefeed);
+	pythOracle(signerKp, pricefeed);
 
-	pricefeedPair = pythPricefeedSOLUSD;
-	setPriceFeedPda(pricefeedPair);
-	pythOracle(signerKp, pricefeedPair);
+	pricefeed = pythPricefeedSOLUSD;
+	setPriceFeedPda(pricefeed);
+	pythOracle(signerKp, pricefeed);
 });
 test("init Config", async () => {
 	ll("\n------== init Config");
-	keypair = adminKp;
-	pubkey = keypair.publicKey;
+	signerKp = adminKp;
+	signer = signerKp.publicKey;
 	newU64 = 123n;
-	ll("signer:", keypair.publicKey.toBase58());
-	initConfig(keypair, configPbk, newU64);
+	ll("signer:", signerKp.publicKey.toBase58());
+	initConfig(signerKp, configPbk, newU64);
 
 	const pdaRaw = svm.getAccount(configPbk);
 	expect(pdaRaw).not.toBeNull();
@@ -109,17 +108,17 @@ test("init Config", async () => {
 	expect(pdaRaw?.owner).toEqual(pgid);
 
 	const decoded = solanaKitDecodeConfigDev(rawAccountData);
-	expect(decoded.unique).toEqual(pubkey);
-	expect(decoded.progOwner).toEqual(pubkey);
-	expect(decoded.admin).toEqual(pubkey);
+	expect(decoded.unique).toEqual(signer);
+	expect(decoded.progOwner).toEqual(signer);
+	expect(decoded.admin).toEqual(signer);
 	expect(decoded.newU64).toEqual(newU64);
 });
 test("SimpleAccount", async () => {
 	ll("\n------== SimpleAccount");
 	ll("simpleAcctPbk:", simpleAcctPbk.toBase58());
-	keypair = adminKp;
+	signerKp = adminKp;
 	const price = 73200n;
-	initSimpleAcct(keypair, simpleAcctPbk, price);
+	initSimpleAcct(signerKp, simpleAcctPbk, price);
 
 	const pdaRaw = svm.getAccount(simpleAcctPbk);
 	expect(pdaRaw).not.toBeNull();
@@ -128,6 +127,6 @@ test("SimpleAccount", async () => {
 	expect(pdaRaw?.owner).toEqual(pgid);
 
 	const decoded = solanaKitDecodeSimpleAcctDev(rawAccountData);
-	expect(decoded.writeAuthority).toEqual(keypair.publicKey);
+	expect(decoded.writeAuthority).toEqual(signerKp.publicKey);
 	expect(decoded.price).toEqual(price);
 });

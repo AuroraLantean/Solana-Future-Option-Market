@@ -19,7 +19,8 @@ import { mintNft } from "./backend/nft.ts";
 	type PoolInfoList,
 	radiumSwap,
 } from "./backend/raydium.ts";*/
-import { ll, usdtMint } from "./tests/utils.ts";
+import { ll } from "./tests/utils.ts";
+import { usdtMint } from "./tests/web3jsSetup.ts";
 
 const args = Bun.argv;
 const arg0 = args.length > 2 ? args[2] : "";
