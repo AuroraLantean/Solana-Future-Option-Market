@@ -6,8 +6,8 @@ use anchor_spl::token_interface::{
 use pyth_solana_receiver_sdk::price_update::PriceUpdateV2;
 
 use crate::pda::{
-  AdminPda, Config, OptContract, SimpleAcct, UserPayment, ADMINPDA, ADMINPDAATA, CONFIG, LEN,
-  OPTIONCTRT, SIMPLEACCT, USERPAYMENT,
+  Config, OptContract, Pool, SimpleAcct, UserPayment, Vault, CONFIG, LEN, OPTIONCTRT, POOL,
+  SIMPLEACCT, USERPAYMENT, VAULT, VAULTATA,
 };
 
 mod pda;
@@ -42,8 +42,6 @@ fn get_premium(opt_ctrt_amount: u64, ctrt_price: u64) -> Result<u64> {
 
 #[program]
 pub mod future_option_market {
-
-  use crate::pda::ADMINPDA;
 
   use super::*;
 
@@ -118,14 +116,14 @@ pub mod future_option_market {
     //let user_payment = &mut ctx.accounts.user_payment;
     Ok(())
   }
-  pub fn init_admin_pda(ctx: Context<InitAdminPda>) -> Result<()> {
+  pub fn init_vault(ctx: Context<InitVault>) -> Result<()> {
     let config = &mut ctx.accounts.config;
-    config.admin_pda = ctx.accounts.admin_pda.key();
+    config.vault = ctx.accounts.vault.key();
     Ok(())
   }
-  pub fn init_admin_pda_ata(ctx: Context<InitAdminPdaAta>) -> Result<()> {
+  pub fn init_vault_ata(ctx: Context<InitVaultAta>) -> Result<()> {
     let config = &mut ctx.accounts.config;
-    config.admin_pda_ata = ctx.accounts.admin_pda_ata.key();
+    config.vault_ata = ctx.accounts.vault_ata.key();
     Ok(())
   }
   pub fn buy_option(
@@ -156,7 +154,7 @@ pub mod future_option_market {
     let cpi_accounts = TransferChecked {
       mint: ctx.accounts.mint.to_account_info(),
       from: ctx.accounts.user_ata.to_account_info(),
-      to: ctx.accounts.admin_pda_ata.to_account_info(),
+      to: ctx.accounts.vault_ata.to_account_info(),
       authority: ctx.accounts.user.to_account_info(),
     };
     let cpi_program = ctx.accounts.token_program.to_account_info();
@@ -183,13 +181,13 @@ pub mod future_option_market {
     msg!("withdraw tokens");
     let decimals = ctx.accounts.mint.decimals;
 
-    let signer_seeds: &[&[&[u8]]] = &[&[ADMINPDA.as_ref(), &[ctx.bumps.admin_pda]]];
+    let signer_seeds: &[&[&[u8]]] = &[&[VAULT.as_ref(), &[ctx.bumps.vault]]];
 
     let cpi_accounts = TransferChecked {
       mint: ctx.accounts.mint.to_account_info(),
-      from: ctx.accounts.admin_pda_ata.to_account_info(),
+      from: ctx.accounts.vault_ata.to_account_info(),
       to: ctx.accounts.to_ata.to_account_info(),
-      authority: ctx.accounts.admin_pda.to_account_info(),
+      authority: ctx.accounts.vault.to_account_info(),
     };
     let cpi_program = ctx.accounts.token_program.to_account_info();
 
@@ -222,13 +220,13 @@ pub mod future_option_market {
 
     let decimals = ctx.accounts.mint.decimals;
 
-    let signer_seeds: &[&[&[u8]]] = &[&[ADMINPDA.as_ref(), &[ctx.bumps.admin_pda]]];
+    let signer_seeds: &[&[&[u8]]] = &[&[VAULT.as_ref(), &[ctx.bumps.vault]]];
 
     let cpi_accounts = TransferChecked {
       mint: ctx.accounts.mint.to_account_info(),
-      from: ctx.accounts.admin_pda_ata.to_account_info(),
+      from: ctx.accounts.vault_ata.to_account_info(),
       to: ctx.accounts.user_ata.to_account_info(),
-      authority: ctx.accounts.admin_pda.to_account_info(),
+      authority: ctx.accounts.vault.to_account_info(),
     };
     let cpi_program = ctx.accounts.token_program.to_account_info();
 
@@ -290,7 +288,54 @@ pub mod future_option_market {
     simple_acct.price = price;
     Ok(())
   }
+  pub fn flashloan_borrow(
+    ctx: Context<FlashloanBorrow>,
+    _option_id: String,
+    token_amount: u64,
+  ) -> Result<()> {
+    msg!("buy_option()");
+    msg!("token_amount: {}", token_amount);
+
+    let pool = &mut ctx.accounts.pool;
+    let _config = &mut ctx.accounts.config;
+
+    //https://www.anchor-lang.com/docs/tokens/basics/transfer-tokens
+    let decimals = ctx.accounts.mint.decimals;
+
+    let cpi_accounts = TransferChecked {
+      mint: ctx.accounts.mint.to_account_info(),
+      from: ctx.accounts.user_ata.to_account_info(),
+      to: ctx.accounts.pool_ata.to_account_info(),
+      authority: ctx.accounts.user.to_account_info(),
+    };
+    let cpi_program = ctx.accounts.token_program.to_account_info();
+    let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
+
+    transfer_checked(cpi_context, token_amount, decimals)?;
+    Ok(())
+  }
 }
+#[derive(Accounts)]
+#[instruction(pool_id: String)]
+pub struct FlashloanBorrow<'info> {
+  #[account(mut, seeds = [POOL, config.unique.key().as_ref(), pool_id.as_bytes()], bump)]
+  pub pool: Box<Account<'info, Pool>>,
+  #[account(seeds = [CONFIG], bump)]
+  pub config: Account<'info, Config>,
+
+  #[account(mut, token::mint = mint, token::authority = user, token::token_program = token_program)]
+  pub user_ata: InterfaceAccount<'info, TokenAccount>,
+  #[account(mut, seeds = [VAULTATA], bump, token::mint = mint, token::token_program = token_program)]
+  pub pool_ata: InterfaceAccount<'info, TokenAccount>,
+
+  #[account(constraint = config.mint == mint.key() @ ErrorCode::TokenMintInvalid)]
+  pub mint: InterfaceAccount<'info, Mint>,
+
+  pub user: Signer<'info>,
+  #[account(constraint = config.token_program == token_program.key())]
+  pub token_program: Interface<'info, TokenInterface>,
+  pub system_program: Program<'info, System>,
+} //Box should only be used when you have very large structs that might cause stack overflow issues.
 #[derive(Accounts)]
 #[instruction()]
 pub struct InitSimpleAccount<'info> {
@@ -328,13 +373,13 @@ pub struct SellOption<'info> {
   #[account(mut, token::mint = mint, token::authority = user, token::token_program = token_program)]
   pub user_ata: InterfaceAccount<'info, TokenAccount>,
 
-  #[account(mut, seeds = [ADMINPDAATA], bump, token::mint = mint, token::token_program = token_program)]
-  pub admin_pda_ata: InterfaceAccount<'info, TokenAccount>,
+  #[account(mut, seeds = [VAULTATA], bump, token::mint = mint, token::token_program = token_program)]
+  pub vault_ata: InterfaceAccount<'info, TokenAccount>,
   #[account(mut, seeds = [USERPAYMENT, user.key().as_ref(), opt_ctrt.key().as_ref()], bump)]
   pub user_payment: Box<Account<'info, UserPayment>>,
 
-  #[account(seeds = [ADMINPDA], bump)]
-  pub admin_pda: Account<'info, AdminPda>,
+  #[account(seeds = [VAULT], bump)]
+  pub vault: Account<'info, Vault>,
 
   #[account(constraint = config.mint == mint.key() @ ErrorCode::TokenMintInvalid)]
   pub mint: InterfaceAccount<'info, Mint>,
@@ -350,12 +395,12 @@ pub struct WithdrawToken<'info> {
   #[account(mut, constraint = config.mint == mint.key() @ ErrorCode::TokenMintInvalid)]
   pub mint: InterfaceAccount<'info, Mint>,
 
-  #[account(seeds = [ADMINPDA], bump)]
-  pub admin_pda: Account<'info, AdminPda>,
+  #[account(seeds = [VAULT], bump)]
+  pub vault: Account<'info, Vault>,
 
-  #[account(mut, seeds = [ADMINPDAATA], bump, token::mint = mint,
-		token::authority = admin_pda, token::token_program = token_program)]
-  pub admin_pda_ata: InterfaceAccount<'info, TokenAccount>,
+  #[account(mut, seeds = [VAULTATA], bump, token::mint = mint,
+		token::authority = vault, token::token_program = token_program)]
+  pub vault_ata: InterfaceAccount<'info, TokenAccount>,
 
   //init_if_needed,  payer = signer,...  will make a new account, which is different from the one in the JS testing environment!
   #[account(mut, token::mint = mint, token::authority = signer, token::token_program = token_program)]
@@ -378,8 +423,8 @@ pub struct BuyOption<'info> {
 
   #[account(mut,token::mint = mint, token::authority = user, token::token_program = token_program)]
   pub user_ata: InterfaceAccount<'info, TokenAccount>,
-  #[account(mut, seeds = [ADMINPDAATA], bump, token::mint = mint, token::token_program = token_program)]
-  pub admin_pda_ata: InterfaceAccount<'info, TokenAccount>,
+  #[account(mut, seeds = [VAULTATA], bump, token::mint = mint, token::token_program = token_program)]
+  pub vault_ata: InterfaceAccount<'info, TokenAccount>,
   #[account(mut, seeds = [USERPAYMENT, user.key().as_ref(), opt_ctrt.key().as_ref()], bump)]
   pub user_payment: Box<Account<'info, UserPayment>>,
 
@@ -393,14 +438,14 @@ pub struct BuyOption<'info> {
 
 //https://www.anchor-lang.com/docs/references/account-constraints
 #[derive(Accounts)]
-pub struct InitAdminPdaAta<'info> {
+pub struct InitVaultAta<'info> {
   #[account(init, payer = admin,
-      seeds = [ADMINPDAATA], bump, token::mint = mint,
-      token::authority = admin_pda, token::token_program = token_program
+      seeds = [VAULTATA], bump, token::mint = mint,
+      token::authority = vault, token::token_program = token_program
 		)]
-  pub admin_pda_ata: InterfaceAccount<'info, TokenAccount>,
-  #[account(seeds = [ADMINPDA], bump)]
-  pub admin_pda: Account<'info, AdminPda>,
+  pub vault_ata: InterfaceAccount<'info, TokenAccount>,
+  #[account(seeds = [VAULT], bump)]
+  pub vault: Account<'info, Vault>,
   #[account(constraint = config.mint == mint.key() @ ErrorCode::TokenMintInvalid)]
   pub mint: InterfaceAccount<'info, Mint>,
   #[account(seeds = [CONFIG], bump, has_one = admin @ ErrorCode::OnlyAdmin)]
@@ -412,9 +457,9 @@ pub struct InitAdminPdaAta<'info> {
   pub system_program: Program<'info, System>,
 }
 #[derive(Accounts)]
-pub struct InitAdminPda<'info> {
-  #[account(init, payer = admin, seeds = [ADMINPDA], bump, space = 8 + AdminPda::INIT_SPACE )]
-  pub admin_pda: Account<'info, AdminPda>,
+pub struct InitVault<'info> {
+  #[account(init, payer = admin, seeds = [VAULT], bump, space = 8 + Vault::INIT_SPACE )]
+  pub vault: Account<'info, Vault>,
   #[account(seeds = [CONFIG], bump, has_one = admin @ ErrorCode::OnlyAdmin)]
   pub config: Account<'info, Config>,
   #[account(mut)]

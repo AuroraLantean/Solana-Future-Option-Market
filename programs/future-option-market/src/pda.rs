@@ -32,12 +32,19 @@ pub const USERPAYMENT: &[u8; 26] = b"future_option_user_payment";
 pub struct UserPayment {
   pub payments: [u64; LEN],
 }
-pub const ADMINPDAATA: &[u8; 25] = b"future_option_adminpdaata";
+pub const VAULTATA: &[u8; 23] = b"future_option_vault_ata";
 
-pub const ADMINPDA: &[u8; 22] = b"future_option_adminpda";
+pub const VAULT: &[u8; 19] = b"future_option_vault";
+pub const POOL: &[u8; 28] = b"future_option_liquidity_pool";
 #[account]
 #[derive(InitSpace)]
-pub struct AdminPda {
+pub struct Pool {
+  #[max_len(20)]
+  pub asset_name: String,
+}
+#[account]
+#[derive(InitSpace)]
+pub struct Vault {
   pub sol_balc: u128,
 }
 pub const OPTIONCTRT: &[u8; 22] = b"future_option_contract";
@@ -59,8 +66,8 @@ pub struct Config {
   pub unique: Pubkey,
   pub prog_owner: Pubkey,
   pub admin: Pubkey,
-  pub admin_pda: Pubkey,
-  pub admin_pda_ata: Pubkey,
+  pub vault: Pubkey,
+  pub vault_ata: Pubkey,
   pub token_program: Pubkey,
   pub mint: Pubkey,
   pub new_u32: u32,

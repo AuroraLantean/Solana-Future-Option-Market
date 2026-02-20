@@ -12,12 +12,12 @@ import {
 	balcToken,
 	bn,
 	bnTok,
-	getAdminPda,
-	getAdminPdaata,
 	getConfig,
 	getOptCtrt,
 	getPremium,
 	getUserPayment,
+	getVault,
+	getVaultAta,
 	ll,
 	mintAuthKp,
 	mintToken,
@@ -205,25 +205,25 @@ describe("Future Option Main Test", () => {
 		//expect(user1Payment.payments.eq(zero));
 	});
 
-	it("init Admin PDA", async () => {
+	it("init Vault", async () => {
 		keypair = adminKp;
 		await program.methods
-			.initAdminPda()
+			.initVault()
 			.accounts({ admin: admin })
 			.signers([keypair])
 			.rpc();
 		ll("initAdminPda successful");
 
-		adminPdaPbk = getAdminPda(pgid, "admin pda");
+		adminPdaPbk = getVault(pgid, "Vault");
 		adminPda = await program.account.adminPda.fetch(adminPdaPbk);
 		ll("authPda:", JSON.stringify(adminPda));
 		expect(adminPda.solBalc.eq(zero));
 	});
 
-	it("init Admin PDA ATA", async () => {
+	it("init Vault ATA", async () => {
 		keypair = adminKp;
 		await program.methods
-			.initAdminPdaAta()
+			.initVaultAta()
 			.accounts({
 				//adminPda,
 				mint: usdtMint,
@@ -235,7 +235,7 @@ describe("Future Option Main Test", () => {
 			.rpc();
 		ll("initTokenPdaAta successful");
 
-		adminPdaAtaPbk = getAdminPdaata(pgid, "adminPdaAta");
+		adminPdaAtaPbk = getVaultAta(pgid, "adminPdaAta");
 		balcAdminPdaAtaAf = await balcToken(conn, adminPdaAtaPbk, "tokenPdaAta");
 	});
 

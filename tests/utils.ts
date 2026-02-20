@@ -92,20 +92,20 @@ export const getOptCtrt = (
 	ll(pdaName, ":", publickey.toBase58());
 	return publickey;
 };
-export const getAdminPda = (programId: PublicKey, pdaName: string) => {
+export const getVault = (programId: PublicKey, pdaName: string) => {
 	const [pubkey, bump] = PublicKey.findProgramAddressSync(
-		[Buffer.from("future_option_adminpda")],
+		[Buffer.from("future_option_vault")],
 		programId,
 	);
 	ll(pdaName, ":", pubkey.toBase58());
 	return pubkey;
 };
-export const getAdminPdaata = (
+export const getVaultAta = (
 	programId: PublicKey,
 	pdaName: string,
 ): PublicKey => {
 	const [publickey, bump] = PublicKey.findProgramAddressSync(
-		[Buffer.from("future_option_adminpdaata")],
+		[Buffer.from("future_option_vault_ata")],
 		programId,
 	);
 	ll(pdaName, ":", publickey.toBase58());
