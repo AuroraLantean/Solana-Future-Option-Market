@@ -1,18 +1,26 @@
 #![allow(unexpected_cfgs)]
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{
-  transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked,
+use anchor_lang::{
+  solana_program::sysvar::instructions::{
+    load_instruction_at_checked, ID as INSTRUCTIONS_SYSVAR_ID,
+  },
+  Discriminator,
+};
+use anchor_spl::{
+  associated_token::AssociatedToken,
+  token::Token,
+  token_interface::{transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked},
 };
 use pyth_solana_receiver_sdk::price_update::PriceUpdateV2;
 
 use crate::pda::{
-  Config, OptContract, Pool, SimpleAcct, UserPayment, Vault, CONFIG, LEN, OPTIONCTRT, POOL,
-  SIMPLEACCT, USERPAYMENT, VAULT, VAULTATA,
+  Config, OptContract, SimpleAcct, UserPayment, Vault, CONFIG, LEN, OPTIONCTRT, SIMPLEACCT,
+  USERPAYMENT, VAULT, VAULTATA,
 };
 
+mod events;
 mod pda;
 //use pda::*;
-//mod events;
 
 declare_id!("CgZEcSRPh1Ay1EYR4VJPTJRYcRkTDjjZhBAjZ5M8keGp");
 
@@ -42,6 +50,8 @@ fn get_premium(opt_ctrt_amount: u64, ctrt_price: u64) -> Result<u64> {
 
 #[program]
 pub mod future_option_market {
+
+  use crate::events::WithdrawTokenEvent;
 
   use super::*;
 
@@ -195,6 +205,12 @@ pub mod future_option_market {
 
     msg!("withdraw_token::transfer_checked()");
     transfer_checked(cpi_context, amount, decimals)?;
+    emit!(WithdrawTokenEvent {
+      mint: ctx.accounts.mint.key(),
+      from: ctx.accounts.vault_ata.key(),
+      to: ctx.accounts.to_ata.key(),
+      amount
+    });
     Ok(())
   }
   pub fn sell_option(
@@ -288,15 +304,19 @@ pub mod future_option_market {
     simple_acct.price = price;
     Ok(())
   }
+  pub fn repay(ctx: Context<Flashloan>) -> Result<()> {
+    // repay logic...
+    Ok(())
+  }
   pub fn flashloan_borrow(
-    ctx: Context<FlashloanBorrow>,
+    ctx: Context<Flashloan>,
     _option_id: String,
     token_amount: u64,
   ) -> Result<()> {
     msg!("buy_option()");
     msg!("token_amount: {}", token_amount);
 
-    let pool = &mut ctx.accounts.pool;
+    let lender_pda = &mut ctx.accounts.lender_pda;
     let _config = &mut ctx.accounts.config;
 
     //https://www.anchor-lang.com/docs/tokens/basics/transfer-tokens
@@ -305,7 +325,7 @@ pub mod future_option_market {
     let cpi_accounts = TransferChecked {
       mint: ctx.accounts.mint.to_account_info(),
       from: ctx.accounts.user_ata.to_account_info(),
-      to: ctx.accounts.pool_ata.to_account_info(),
+      to: ctx.accounts.lender_ata.to_account_info(),
       authority: ctx.accounts.user.to_account_info(),
     };
     let cpi_program = ctx.accounts.token_program.to_account_info();
@@ -316,24 +336,38 @@ pub mod future_option_market {
   }
 }
 #[derive(Accounts)]
-#[instruction(pool_id: String)]
-pub struct FlashloanBorrow<'info> {
-  #[account(mut, seeds = [POOL, config.unique.key().as_ref(), pool_id.as_bytes()], bump)]
-  pub pool: Box<Account<'info, Pool>>,
+//#[instruction(pool_id: String)]
+pub struct Flashloan<'info> {
+  //#[account(mut, seeds = [POOL.as_ref(), config.unique.key().as_ref(), pool_id.as_bytes()], bump)]
+  //pub pool: Box<Account<'info, Pool>>,
+  #[account(
+    seeds = [b"xyz_liquidity".as_ref()],
+    bump,
+  )]
+  pub lender_pda: SystemAccount<'info>,
+
+  #[account(mut,
+    /*associated_token::authority = protocol,*/ token::mint = mint,
+    token::authority = lender_pda, token::token_program = token_program)]
+  pub lender_ata: InterfaceAccount<'info, TokenAccount>,
+
+  #[account(
+    init_if_needed,
+    payer = user, token::mint = mint, token::authority = user, token::token_program = token_program)]
+  pub user_ata: InterfaceAccount<'info, TokenAccount>,
+
+  pub mint: InterfaceAccount<'info, Mint>,
+  #[account(mut)]
+  pub user: Signer<'info>,
   #[account(seeds = [CONFIG], bump)]
   pub config: Account<'info, Config>,
 
-  #[account(mut, token::mint = mint, token::authority = user, token::token_program = token_program)]
-  pub user_ata: InterfaceAccount<'info, TokenAccount>,
-  #[account(mut, seeds = [VAULTATA], bump, token::mint = mint, token::token_program = token_program)]
-  pub pool_ata: InterfaceAccount<'info, TokenAccount>,
+  /// CHECK: verify we're accessing the correct system account that contains transaction instruction data.
+  #[account(address = INSTRUCTIONS_SYSVAR_ID)]
+  instructions: UncheckedAccount<'info>,
 
-  #[account(constraint = config.mint == mint.key() @ ErrorCode::TokenMintInvalid)]
-  pub mint: InterfaceAccount<'info, Mint>,
-
-  pub user: Signer<'info>,
-  #[account(constraint = config.token_program == token_program.key())]
   pub token_program: Interface<'info, TokenInterface>,
+  pub associated_token_program: Program<'info, AssociatedToken>,
   pub system_program: Program<'info, System>,
 } //Box should only be used when you have very large structs that might cause stack overflow issues.
 #[derive(Accounts)]
