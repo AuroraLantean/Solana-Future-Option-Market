@@ -10,6 +10,7 @@ use anchor_spl::{
   associated_token::AssociatedToken,
   token::Token,
   token_interface::{transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked},
+  //token::{Token, TokenAccount, Mint, Transfer, transfer},
 };
 use pyth_solana_receiver_sdk::price_update::PriceUpdateV2;
 
@@ -50,7 +51,6 @@ fn get_premium(opt_ctrt_amount: u64, ctrt_price: u64) -> Result<u64> {
 
 #[program]
 pub mod future_option_market {
-
   use crate::events::WithdrawTokenEvent;
 
   use super::*;
@@ -154,7 +154,7 @@ pub mod future_option_market {
 
     let new_payment = user_payment.payments[idx].checked_add(token_amount);
     if new_payment.is_none() {
-      return err!(ErrorCode::MathAddOverflow);
+      return err!(ErrorCode::MathOverflow);
     }
     user_payment.payments[idx] = new_payment.unwrap();
 
@@ -230,7 +230,7 @@ pub mod future_option_market {
 
     let new_payment = user_payment.payments[idx].checked_sub(token_amount);
     if new_payment.is_none() {
-      return err!(ErrorCode::MathSubUnderflow);
+      return err!(ErrorCode::MathUnderflow);
     }
     user_payment.payments[idx] = new_payment.unwrap();
 
@@ -313,25 +313,29 @@ pub mod future_option_market {
     _option_id: String,
     token_amount: u64,
   ) -> Result<()> {
-    msg!("buy_option()");
+    msg!("flashloan_borrow()");
     msg!("token_amount: {}", token_amount);
+    require!(token_amount > 0, ErrorCode::InvalidAmount);
 
-    let lender_pda = &mut ctx.accounts.lender_pda;
-    let _config = &mut ctx.accounts.config;
+    // Derive the Signer Seeds for the Protocol Account
+    let seeds = &[b"protocol".as_ref(), &[ctx.bumps.lender_pda]];
+    let signer_seeds = &[&seeds[..]];
 
     //https://www.anchor-lang.com/docs/tokens/basics/transfer-tokens
     let decimals = ctx.accounts.mint.decimals;
-
     let cpi_accounts = TransferChecked {
+      from: ctx.accounts.lender_ata.to_account_info(),
       mint: ctx.accounts.mint.to_account_info(),
-      from: ctx.accounts.user_ata.to_account_info(),
-      to: ctx.accounts.lender_ata.to_account_info(),
-      authority: ctx.accounts.user.to_account_info(),
+      to: ctx.accounts.user_ata.to_account_info(),
+      authority: ctx.accounts.lender_pda.to_account_info(),
     };
     let cpi_program = ctx.accounts.token_program.to_account_info();
-    let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
-
-    transfer_checked(cpi_context, token_amount, decimals)?;
+    // Transfer the funds from the protocol to the borrower
+    transfer_checked(
+      CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds),
+      token_amount,
+      decimals,
+    )?;
     Ok(())
   }
 }
@@ -595,10 +599,29 @@ pub enum ErrorCode {
   InvalidAmount,
   #[msg("math mult overflow")]
   MathMultOverflow,
-  #[msg("math add overflow")]
-  MathAddOverflow,
-  #[msg("math sub underflow")]
-  MathSubUnderflow,
+  #[msg("math overflow")]
+  MathOverflow,
+  #[msg("math underflow")]
+  MathUnderflow,
+
+  #[msg("Invalid instruction")]
+  InvalidIx,
+  #[msg("Invalid instruction index")]
+  InvalidInstructionIndex,
+  #[msg("Not enough funds")]
+  NotEnoughFunds,
+  #[msg("Program Mismatch")]
+  ProgramMismatch,
+  #[msg("Invalid program")]
+  InvalidProgram,
+  #[msg("Invalid borrower ATA")]
+  InvalidBorrowerAta,
+  #[msg("Invalid lender ATA")]
+  InvalidProtocolAta,
+  #[msg("Missing repay instruction")]
+  MissingRepayIx,
+  #[msg("Missing borrow instruction")]
+  MissingBorrowIx,
 }
 /*TODO: realloc
 https://solana.com/developers/courses/onchain-development/anchor-pdas
