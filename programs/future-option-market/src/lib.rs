@@ -161,8 +161,6 @@ pub mod future_option_market {
     user_payment.payments[idx] = new_payment.unwrap();
 
     //https://www.anchor-lang.com/docs/tokens/basics/transfer-tokens
-    let decimals = ctx.accounts.mint.decimals;
-
     let cpi_accounts = TransferChecked {
       mint: ctx.accounts.mint.to_account_info(),
       from: ctx.accounts.user_ata.to_account_info(),
@@ -172,7 +170,7 @@ pub mod future_option_market {
     let cpi_program = ctx.accounts.token_program.to_account_info();
     let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
 
-    transfer_checked(cpi_context, token_amount, decimals)?;
+    transfer_checked(cpi_context, token_amount, ctx.accounts.mint.decimals)?;
     Ok(())
   }
   /*pub struct OptContract {
@@ -191,8 +189,6 @@ pub mod future_option_market {
   pub fn withdraw_token(ctx: Context<WithdrawToken>, amount: u64) -> Result<()> {
     //TODO: check signer
     msg!("withdraw tokens");
-    let decimals = ctx.accounts.mint.decimals;
-
     let signer_seeds: &[&[&[u8]]] = &[&[VAULT.as_ref(), &[ctx.bumps.vault]]];
 
     let cpi_accounts = TransferChecked {
@@ -206,7 +202,8 @@ pub mod future_option_market {
     let cpi_context = CpiContext::new(cpi_program, cpi_accounts).with_signer(signer_seeds);
 
     msg!("withdraw_token::transfer_checked()");
-    transfer_checked(cpi_context, amount, decimals)?;
+    transfer_checked(cpi_context, amount, ctx.accounts.mint.decimals)?;
+
     emit!(WithdrawTokenEvent {
       mint: ctx.accounts.mint.key(),
       from: ctx.accounts.vault_ata.key(),
@@ -307,7 +304,6 @@ pub mod future_option_market {
   pub fn repay(ctx: Context<Flashloan>) -> Result<()> {
     // Extract loan amount from the borrow instruction's data
 
-    //Transfer the fund + fee
     Ok(())
   }
   pub fn flashloan_borrow(
@@ -319,26 +315,6 @@ pub mod future_option_market {
     msg!("token_amount: {}", token_amount);
     require!(token_amount > 0, ErrorCode::InvalidAmount);
 
-    // Derive the Signer Seeds for the Lender PDA
-    let seeds = [LENDER.as_ref(), &[ctx.bumps.lender_pda]];
-    let signer_seeds = &[&seeds[..]];
-
-    //https://www.anchor-lang.com/docs/tokens/basics/transfer-tokens
-    let cpi_accounts = TransferChecked {
-      from: ctx.accounts.lender_ata.to_account_info(),
-      mint: ctx.accounts.mint.to_account_info(),
-      to: ctx.accounts.user_ata.to_account_info(),
-      authority: ctx.accounts.lender_pda.to_account_info(),
-    };
-    let cpi_program = ctx.accounts.token_program.to_account_info();
-    // Transfer the funds from the protocol to the borrower
-    transfer_checked(
-      CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds),
-      token_amount,
-      ctx.accounts.mint.decimals,
-    )?;
-
-    //----------==
     let ixs = ctx.accounts.instructions.to_account_info();
 
     // Check if this is the first instruction in the transaction.
@@ -383,6 +359,26 @@ pub mod future_option_market {
     } else {
       return Err(ErrorCode::MissingRepayIx.into());
     }
+
+    // Validation passed
+    // Derive the Signer Seeds for the Lender PDA
+    let seeds = [LENDER.as_ref(), &[ctx.bumps.lender_pda]];
+    let signer_seeds = &[&seeds[..]];
+
+    //https://www.anchor-lang.com/docs/tokens/basics/transfer-tokens
+    let cpi_accounts = TransferChecked {
+      from: ctx.accounts.lender_ata.to_account_info(),
+      mint: ctx.accounts.mint.to_account_info(),
+      to: ctx.accounts.user_ata.to_account_info(),
+      authority: ctx.accounts.lender_pda.to_account_info(),
+    };
+    let cpi_program = ctx.accounts.token_program.to_account_info();
+    // Transfer the funds from the protocol to the borrower
+    transfer_checked(
+      CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds),
+      token_amount,
+      ctx.accounts.mint.decimals,
+    )?;
     Ok(())
   }
 }
@@ -650,6 +646,8 @@ pub enum ErrorCode {
   MathOverflow,
   #[msg("math underflow")]
   MathUnderflow,
+  #[msg("math integer division")]
+  MathIntDiv,
 
   #[msg("Invalid instruction")]
   InvalidIx,
