@@ -15,7 +15,7 @@ use anchor_spl::{
 use pyth_solana_receiver_sdk::price_update::PriceUpdateV2;
 
 use crate::pda::{
-  Config, OptContract, SimpleAcct, UserPayment, Vault, CONFIG, LEN, OPTIONCTRT, SIMPLEACCT,
+  Config, OptContract, SimpleAcct, UserPayment, Vault, CONFIG, LEN, LENDER, OPTIONCTRT, SIMPLEACCT,
   USERPAYMENT, VAULT, VAULTATA,
 };
 
@@ -51,6 +51,8 @@ fn get_premium(opt_ctrt_amount: u64, ctrt_price: u64) -> Result<u64> {
 
 #[program]
 pub mod future_option_market {
+  use anchor_lang::prelude::sysvar::instructions::load_current_index_checked;
+
   use crate::events::WithdrawTokenEvent;
 
   use super::*;
@@ -234,8 +236,6 @@ pub mod future_option_market {
     }
     user_payment.payments[idx] = new_payment.unwrap();
 
-    let decimals = ctx.accounts.mint.decimals;
-
     let signer_seeds: &[&[&[u8]]] = &[&[VAULT.as_ref(), &[ctx.bumps.vault]]];
 
     let cpi_accounts = TransferChecked {
@@ -249,7 +249,7 @@ pub mod future_option_market {
     let cpi_context = CpiContext::new(cpi_program, cpi_accounts).with_signer(signer_seeds);
 
     msg!("withdraw_token::transfer_checked()");
-    transfer_checked(cpi_context, token_amount, decimals)?;
+    transfer_checked(cpi_context, token_amount, ctx.accounts.mint.decimals)?;
     Ok(())
   }
 
@@ -305,7 +305,9 @@ pub mod future_option_market {
     Ok(())
   }
   pub fn repay(ctx: Context<Flashloan>) -> Result<()> {
-    // repay logic...
+    // Extract loan amount from the borrow instruction's data
+
+    //Transfer the fund + fee
     Ok(())
   }
   pub fn flashloan_borrow(
@@ -317,12 +319,11 @@ pub mod future_option_market {
     msg!("token_amount: {}", token_amount);
     require!(token_amount > 0, ErrorCode::InvalidAmount);
 
-    // Derive the Signer Seeds for the Protocol Account
-    let seeds = &[b"protocol".as_ref(), &[ctx.bumps.lender_pda]];
+    // Derive the Signer Seeds for the Lender PDA
+    let seeds = [LENDER.as_ref(), &[ctx.bumps.lender_pda]];
     let signer_seeds = &[&seeds[..]];
 
     //https://www.anchor-lang.com/docs/tokens/basics/transfer-tokens
-    let decimals = ctx.accounts.mint.decimals;
     let cpi_accounts = TransferChecked {
       from: ctx.accounts.lender_ata.to_account_info(),
       mint: ctx.accounts.mint.to_account_info(),
@@ -334,8 +335,54 @@ pub mod future_option_market {
     transfer_checked(
       CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds),
       token_amount,
-      decimals,
+      ctx.accounts.mint.decimals,
     )?;
+
+    //----------==
+    let ixs = ctx.accounts.instructions.to_account_info();
+
+    // Check if this is the first instruction in the transaction.
+    let current_index = load_current_index_checked(&ctx.accounts.instructions)?;
+    require_eq!(current_index, 0, ErrorCode::InvalidIx); // the position of the borrow instruction should be the only one
+
+    // Check how many instruction we have in this transaction
+    let instruction_sysvar = ixs.try_borrow_data()?;
+    let len = u16::from_le_bytes(instruction_sysvar[0..2].try_into().unwrap());
+
+    //Check we are loading the last instruction of the transaction
+    if let Ok(repay_ix) = load_instruction_at_checked(len as usize - 1, &ixs) {
+      //verify that it's the repay instruction by verifying the program ID and the discriminator of the instruction
+      require_keys_eq!(repay_ix.program_id, ID, ErrorCode::InvalidProgram);
+      require!(
+        repay_ix.data[0..8].eq(instruction::Repay::DISCRIMINATOR),
+        ErrorCode::InvalidIx
+      );
+
+      // Check the Wallet and Mint separately but by checking the ATA we do this automatically
+      // Check User ATA
+      require_keys_eq!(
+        repay_ix
+          .accounts
+          .get(3)
+          .ok_or(ErrorCode::InvalidBorrowerAta)?
+          .pubkey,
+        ctx.accounts.user_ata.key(),
+        ErrorCode::InvalidBorrowerAta
+      );
+
+      //Check Lender ATA
+      require_keys_eq!(
+        repay_ix
+          .accounts
+          .get(4)
+          .ok_or(ErrorCode::InvalidLenderAta)?
+          .pubkey,
+        ctx.accounts.lender_ata.key(),
+        ErrorCode::InvalidLenderAta
+      );
+    } else {
+      return Err(ErrorCode::MissingRepayIx.into());
+    }
     Ok(())
   }
 }
@@ -345,7 +392,7 @@ pub struct Flashloan<'info> {
   //#[account(mut, seeds = [POOL.as_ref(), config.unique.key().as_ref(), pool_id.as_bytes()], bump)]
   //pub pool: Box<Account<'info, Pool>>,
   #[account(
-    seeds = [b"xyz_liquidity".as_ref()],
+    seeds = [LENDER.as_ref()],
     bump,
   )]
   pub lender_pda: SystemAccount<'info>,
@@ -617,7 +664,7 @@ pub enum ErrorCode {
   #[msg("Invalid borrower ATA")]
   InvalidBorrowerAta,
   #[msg("Invalid lender ATA")]
-  InvalidProtocolAta,
+  InvalidLenderAta,
   #[msg("Missing repay instruction")]
   MissingRepayIx,
   #[msg("Missing borrow instruction")]

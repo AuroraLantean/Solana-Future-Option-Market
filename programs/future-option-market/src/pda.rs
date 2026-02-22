@@ -35,7 +35,7 @@ pub struct UserPayment {
 pub const VAULTATA: &[u8; 23] = b"future_option_vault_ata";
 
 pub const VAULT: &[u8; 19] = b"future_option_vault";
-pub const POOL: &[u8; 28] = b"future_option_liquidity_pool";
+pub const LENDER: &[u8; 13] = b"xyz_liquidity";
 #[account]
 #[derive(InitSpace)]
 pub struct Pool {
