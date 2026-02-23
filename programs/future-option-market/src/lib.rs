@@ -7,8 +7,7 @@ use anchor_lang::{
   Discriminator,
 };
 use anchor_spl::{
-  associated_token::AssociatedToken,
-  token::Token,
+  //associated_token::AssociatedToken,
   token_interface::{transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked},
   //token::{Token, TokenAccount, Mint, Transfer, transfer},
 };
@@ -32,21 +31,20 @@ pub const MAXIMUM_AGE: u64 = 60; // One minute
 pub const FEED_ID: &str = "0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d"; // SOL/USD price feed id from https://pyth.network/developers/price-feed-ids
 
 fn time() -> Result<u32> {
-  let clock = Clock::get().expect("clock time failed");
+  let clock = Clock::get().map_err(|_| ErrCode::ClockTime)?;
   let time = clock.unix_timestamp as u32;
   msg!("Solana time:{:?}, slot:{:?}", time, clock.slot);
   Ok(time)
 }
 fn get_premium(opt_ctrt_amount: u64, ctrt_price: u64) -> Result<u64> {
-  let shares = opt_ctrt_amount.checked_mul(100);
-  if shares.is_none() {
-    return err!(ErrorCode::MathMultOverflow);
-  }
-  let premium = ctrt_price.checked_mul(shares.unwrap());
-  if premium.is_none() {
-    return err!(ErrorCode::MathMultOverflow);
-  }
-  Ok(premium.unwrap())
+  let shares = opt_ctrt_amount
+    .checked_mul(100)
+    .ok_or_else(|| ErrCode::MathMultOverflow)?;
+
+  let premium = ctrt_price
+    .checked_mul(shares)
+    .ok_or_else(|| ErrCode::MathMultOverflow)?;
+  Ok(premium)
 }
 
 #[program]
@@ -96,24 +94,21 @@ pub mod future_option_market {
     msg!("new_option()");
     let opt_ctrt = &mut ctx.accounts.opt_ctrt;
     let config = &mut ctx.accounts.config;
-    require!(
-      config.admin == *ctx.accounts.signer.key,
-      ErrorCode::OnlyAdmin
-    );
+    require!(config.admin == *ctx.accounts.signer.key, ErrCode::OnlyAdmin);
 
     let time = time()?;
     for (x, v) in expiry_times.into_iter().enumerate() {
-      require!(v > time, ErrorCode::ExpiryTooSoon);
-      require!(strike_prices[x] > 0, ErrorCode::StrikePriceInvalid);
-      require!(ctrt_prices[x] > 0, ErrorCode::CtrtPriceInvalid);
+      require!(v > time, ErrCode::ExpiryTooSoon);
+      require!(strike_prices[x] > 0, ErrCode::StrikePrice);
+      require!(ctrt_prices[x] > 0, ErrCode::CtrtPrice);
     }
     require!(
       !option_id.is_empty() && option_id.len() <= OPTION_ID_MAX_LEN,
-      ErrorCode::OptionIdInvalid
+      ErrCode::OptionId
     );
     require!(
       !asset_name.is_empty() && asset_name.len() <= ASSET_NAME_MAX_LEN,
-      ErrorCode::AssetNameInvalid
+      ErrCode::AssetName
     );
     opt_ctrt.is_call = is_call_opt;
     opt_ctrt.asset_name = asset_name;
@@ -154,11 +149,11 @@ pub mod future_option_market {
     let token_amount = get_premium(opt_ctrt_amount, opt_ctrt.ctrt_prices[idx])?;
     msg!("token_amount: {}", token_amount);
 
-    let new_payment = user_payment.payments[idx].checked_add(token_amount);
-    if new_payment.is_none() {
-      return err!(ErrorCode::MathOverflow);
-    }
-    user_payment.payments[idx] = new_payment.unwrap();
+    let new_payment = user_payment.payments[idx]
+      .checked_add(token_amount)
+      .ok_or_else(|| ErrCode::MathOverflow)?;
+
+    user_payment.payments[idx] = new_payment;
 
     //https://www.anchor-lang.com/docs/tokens/basics/transfer-tokens
     let cpi_accounts = TransferChecked {
@@ -227,11 +222,11 @@ pub mod future_option_market {
     let idx = index as usize;
     let token_amount = get_premium(opt_ctrt_amount, opt_ctrt.ctrt_prices[idx])?;
 
-    let new_payment = user_payment.payments[idx].checked_sub(token_amount);
-    if new_payment.is_none() {
-      return err!(ErrorCode::MathUnderflow);
-    }
-    user_payment.payments[idx] = new_payment.unwrap();
+    let new_payment = user_payment.payments[idx]
+      .checked_sub(token_amount)
+      .ok_or_else(|| ErrCode::MathUnderflow)?;
+
+    user_payment.payments[idx] = new_payment;
 
     let signer_seeds: &[&[&[u8]]] = &[&[VAULT.as_ref(), &[ctx.bumps.vault]]];
 
@@ -301,66 +296,152 @@ pub mod future_option_market {
     simple_acct.price = price;
     Ok(())
   }
+  //------------== Flashloan
+  //for borrowers to call last
   pub fn repay(ctx: Context<Flashloan>) -> Result<()> {
     // Extract loan amount from the borrow instruction's data
+    let ixs = ctx.accounts.instructions.to_account_info();
 
+    //Instruction introspection: examine past instructions!
+    let borrowed_amt = if let Ok(borrow_ix) = load_instruction_at_checked(0, &ixs) {
+      // Check the amount borrowed:
+      let mut borrow_fn_data: [u8; 8] = [0u8; 8];
+      borrow_fn_data.copy_from_slice(&borrow_ix.data[8..16]);
+      u64::from_le_bytes(borrow_fn_data)
+    } else {
+      return Err(ErrCode::MissingBorrowIx.into());
+    };
+    //We're not checking that this is the actual borrow_ix using the program ID and discriminator because it doesn't matter if they actually construct a "fake" instruction; it's safe for the protocol since it's just getting paid. At the same time, if we loaned the money we know that it's going to be the first instruction and that the amount_borrowed will be there.
+
+    // Add the fee to the amount borrowed (here it is 500 basis point or 5%)
+    let numerator = (borrowed_amt as u128)
+      .checked_mul(500)
+      .ok_or_else(|| ErrCode::MathIntMul)?;
+
+    let fee = numerator
+      .checked_div(10_000)
+      .ok_or_else(|| ErrCode::MathIntDiv)? as u64;
+
+    let repay_amt = borrowed_amt
+      .checked_add(fee)
+      .ok_or_else(|| ErrCode::MathOverflow)?;
+
+    // Transfer the funds from the protocol to the borrower
+    let cpi_accounts = TransferChecked {
+      from: ctx.accounts.user_ata.to_account_info(),
+      to: ctx.accounts.lender_ata.to_account_info(),
+      authority: ctx.accounts.user.to_account_info(),
+      mint: ctx.accounts.mint.to_account_info(),
+    };
+
+    transfer_checked(
+      CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts),
+      repay_amt,
+      ctx.accounts.mint.decimals,
+    )?;
+    msg!(
+      "Repaid {} tokens, including borrowed: {}, plus fee: {})",
+      repay_amt,
+      borrowed_amt,
+      fee
+    );
     Ok(())
   }
-  pub fn flashloan_borrow(
-    ctx: Context<Flashloan>,
-    _option_id: String,
-    token_amount: u64,
-  ) -> Result<()> {
+
+  /*Security Features:
+      - Instruction introspection
+      - Account validation
+      - Transaction atomicity
+      - PDA-based authority
+
+    TODO: Add price oracle integration
+    Currently, the protocol has a fixed fee (5%). Real flash loan protocols adjust fees based on:
+    - Market volatility
+    - Protocol utilization rates
+    - Risk metrics
+
+    TODO: multi-token support
+  Right now it's single-token. Production systems support:
+  - Multiple token pools
+  - Cross-token flash loans
+  - Liquidity management across assets
+
+  TODO: Governance & configuration
+  - DAO governance
+  - Parameter adjustment mechanisms
+  - Emergency pause functionality
+
+  TODO: Comprehensive testing
+  - Fuzz testing
+  - Integration tests with real DeFi protocols
+  - Economic attack simulations
+  - Formal verification (for critical paths)
+  */
+  //for borrowers call first
+  pub fn flashloan_borrow(ctx: Context<Flashloan>, token_amount: u64) -> Result<()> {
     msg!("flashloan_borrow()");
     msg!("token_amount: {}", token_amount);
-    require!(token_amount > 0, ErrorCode::InvalidAmount);
+    require!(token_amount > 0, ErrCode::InvalidAmount);
 
+    //Instruction introspection: to examine future instructions!
     let ixs = ctx.accounts.instructions.to_account_info();
 
     // Check if this is the first instruction in the transaction.
     let current_index = load_current_index_checked(&ctx.accounts.instructions)?;
-    require_eq!(current_index, 0, ErrorCode::InvalidIx); // the position of the borrow instruction should be the only one
+    require_eq!(current_index, 0, ErrCode::InvalidIx); // the borrow instruction should be the first instruction at index 0, to avoid reentrancy guards!
 
-    // Check how many instruction we have in this transaction
+    // Find how many instruction we have in this transaction
     let instruction_sysvar = ixs.try_borrow_data()?;
-    let len = u16::from_le_bytes(instruction_sysvar[0..2].try_into().unwrap());
+    let ix_len_data: [u8; 2] = instruction_sysvar[0..2]
+      .try_into()
+      .map_err(|_| ErrCode::InvalidIxLen)?;
 
-    //Check we are loading the last instruction of the transaction
+    let len = u16::from_le_bytes(ix_len_data);
+    drop(instruction_sysvar); //drop borrowing ixs so load_instruction_at_checked() can borrow ixs again!
+
+    //Check the LAST instruction(ix), repay_ix
     if let Ok(repay_ix) = load_instruction_at_checked(len as usize - 1, &ixs) {
-      //verify that it's the repay instruction by verifying the program ID and the discriminator of the instruction
-      require_keys_eq!(repay_ix.program_id, ID, ErrorCode::InvalidProgram);
+      //Check the repay_ix calls this program_id
+      require_keys_eq!(repay_ix.program_id, ID, ErrCode::InvalidProgram);
+
+      //Check the repay_ix discriminator matches the repay() function discriminator
       require!(
         repay_ix.data[0..8].eq(instruction::Repay::DISCRIMINATOR),
-        ErrorCode::InvalidIx
-      );
+        ErrCode::InvalidIx
+      ); //sha256("global:repay")[0..8]
+         //ea674352d0eadba6d5521462a2ac52e6a568be2acfe620ff37bee631bd16523a
+         //[234, 103, 67, 82, 208, 234, 219, 166]
+
+      // Verify replay_ix has enough data
+      //require!(repay_ix.data.len() >= 8, ErrCode::InvalidIx);
 
       // Check the Wallet and Mint separately but by checking the ATA we do this automatically
-      // Check User ATA
+      // Check User ATA in index 2
       require_keys_eq!(
         repay_ix
           .accounts
-          .get(3)
-          .ok_or(ErrorCode::InvalidBorrowerAta)?
+          .get(2)
+          .ok_or(ErrCode::InvalidBorrowerAta)?
           .pubkey,
         ctx.accounts.user_ata.key(),
-        ErrorCode::InvalidBorrowerAta
+        ErrCode::InvalidBorrowerAta
       );
 
-      //Check Lender ATA
+      //Check Lender ATA at index 1
       require_keys_eq!(
         repay_ix
           .accounts
-          .get(4)
-          .ok_or(ErrorCode::InvalidLenderAta)?
+          .get(1)
+          .ok_or(ErrCode::InvalidLenderAta)?
           .pubkey,
         ctx.accounts.lender_ata.key(),
-        ErrorCode::InvalidLenderAta
+        ErrCode::InvalidLenderAta
       );
     } else {
-      return Err(ErrorCode::MissingRepayIx.into());
+      return Err(ErrCode::MissingRepayIx.into());
     }
 
-    // Validation passed
+    // Validation passed, we can lend tokens now
     // Derive the Signer Seeds for the Lender PDA
     let seeds = [LENDER.as_ref(), &[ctx.bumps.lender_pda]];
     let signer_seeds = &[&seeds[..]];
@@ -414,7 +495,7 @@ pub struct Flashloan<'info> {
   instructions: UncheckedAccount<'info>,
 
   pub token_program: Interface<'info, TokenInterface>,
-  pub associated_token_program: Program<'info, AssociatedToken>,
+  //pub associated_token_program: Program<'info, AssociatedToken>,
   pub system_program: Program<'info, System>,
 } //Box should only be used when you have very large structs that might cause stack overflow issues.
 #[derive(Accounts)]
@@ -462,7 +543,7 @@ pub struct SellOption<'info> {
   #[account(seeds = [VAULT], bump)]
   pub vault: Account<'info, Vault>,
 
-  #[account(constraint = config.mint == mint.key() @ ErrorCode::TokenMintInvalid)]
+  #[account(constraint = config.mint == mint.key() @ ErrCode::TokenMint)]
   pub mint: InterfaceAccount<'info, Mint>,
 
   #[account(constraint = config.token_program == token_program.key())]
@@ -473,7 +554,7 @@ pub struct WithdrawToken<'info> {
   #[account(mut)]
   pub signer: Signer<'info>,
 
-  #[account(mut, constraint = config.mint == mint.key() @ ErrorCode::TokenMintInvalid)]
+  #[account(mut, constraint = config.mint == mint.key() @ ErrCode::TokenMint)]
   pub mint: InterfaceAccount<'info, Mint>,
 
   #[account(seeds = [VAULT], bump)]
@@ -509,7 +590,7 @@ pub struct BuyOption<'info> {
   #[account(mut, seeds = [USERPAYMENT, user.key().as_ref(), opt_ctrt.key().as_ref()], bump)]
   pub user_payment: Box<Account<'info, UserPayment>>,
 
-  #[account(constraint = config.mint == mint.key() @ ErrorCode::TokenMintInvalid)]
+  #[account(constraint = config.mint == mint.key() @ ErrCode::TokenMint)]
   pub mint: InterfaceAccount<'info, Mint>,
 
   pub user: Signer<'info>,
@@ -527,9 +608,9 @@ pub struct InitVaultAta<'info> {
   pub vault_ata: InterfaceAccount<'info, TokenAccount>,
   #[account(seeds = [VAULT], bump)]
   pub vault: Account<'info, Vault>,
-  #[account(constraint = config.mint == mint.key() @ ErrorCode::TokenMintInvalid)]
+  #[account(constraint = config.mint == mint.key() @ ErrCode::TokenMint)]
   pub mint: InterfaceAccount<'info, Mint>,
-  #[account(seeds = [CONFIG], bump, has_one = admin @ ErrorCode::OnlyAdmin)]
+  #[account(seeds = [CONFIG], bump, has_one = admin @ ErrCode::OnlyAdmin)]
   pub config: Account<'info, Config>,
   #[account(mut)]
   pub admin: Signer<'info>,
@@ -541,7 +622,7 @@ pub struct InitVaultAta<'info> {
 pub struct InitVault<'info> {
   #[account(init, payer = admin, seeds = [VAULT], bump, space = 8 + Vault::INIT_SPACE )]
   pub vault: Account<'info, Vault>,
-  #[account(seeds = [CONFIG], bump, has_one = admin @ ErrorCode::OnlyAdmin)]
+  #[account(seeds = [CONFIG], bump, has_one = admin @ ErrCode::OnlyAdmin)]
   pub config: Account<'info, Config>,
   #[account(mut)]
   pub admin: Signer<'info>,
@@ -623,23 +704,29 @@ pub struct InitConfig<'info> {
 }
 
 #[error_code]
-pub enum ErrorCode {
+pub enum ErrCode {
   #[msg("OnlyAdmin")]
   OnlyAdmin,
+  #[msg("clock time failed")]
+  ClockTime,
   #[msg("expiry too soon")]
   ExpiryTooSoon,
   #[msg("asset_name invalid")]
-  AssetNameInvalid,
+  AssetName,
   #[msg("option_id invalid")]
-  OptionIdInvalid,
+  OptionId,
   #[msg("strike price invalid")]
-  StrikePriceInvalid,
+  StrikePrice,
   #[msg("contract price invalid")]
-  CtrtPriceInvalid,
+  CtrtPrice,
   #[msg("token mint invalid")]
-  TokenMintInvalid,
+  TokenMint,
   #[msg("invalid amount")]
   InvalidAmount,
+  #[msg("share is none")]
+  ShareIsNone,
+  #[msg("premium is none")]
+  PremiumIsNone,
   #[msg("math mult overflow")]
   MathMultOverflow,
   #[msg("math overflow")]
@@ -648,20 +735,24 @@ pub enum ErrorCode {
   MathUnderflow,
   #[msg("math integer division")]
   MathIntDiv,
+  #[msg("math integer muliplication")]
+  MathIntMul,
 
-  #[msg("Invalid instruction")]
+  #[msg("Instruction invalid")]
   InvalidIx,
-  #[msg("Invalid instruction index")]
+  #[msg("Instruction length invalid")]
+  InvalidIxLen,
+  #[msg("Instruction index invalid")]
   InvalidInstructionIndex,
   #[msg("Not enough funds")]
   NotEnoughFunds,
   #[msg("Program Mismatch")]
   ProgramMismatch,
-  #[msg("Invalid program")]
+  #[msg("Program invalid")]
   InvalidProgram,
-  #[msg("Invalid borrower ATA")]
+  #[msg("Borrower ATA invalid")]
   InvalidBorrowerAta,
-  #[msg("Invalid lender ATA")]
+  #[msg("Lender ATA invalid")]
   InvalidLenderAta,
   #[msg("Missing repay instruction")]
   MissingRepayIx,
