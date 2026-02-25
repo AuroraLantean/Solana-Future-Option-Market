@@ -3,6 +3,7 @@ import {
 	type Keypair,
 	LAMPORTS_PER_SOL,
 	PublicKey,
+	SYSVAR_INSTRUCTIONS_PUBKEY,
 	Transaction,
 	TransactionInstruction,
 } from "@solana/web3.js";
@@ -104,7 +105,42 @@ export const pythOracle = (signer: Keypair, pricefeed: PriceFeed) => {
 	});
 	sendTxns(svm, blockhash, [ix], [signer]);
 };
+export const flashloan = (
+	userSigner: Keypair,
+	lenderPda: PublicKey,
+	lenderAta: PublicKey,
+	userAta: PublicKey,
+	mint: PublicKey,
+	config: PublicKey,
+	tokenProgram: PublicKey,
+	amount: bigint,
+) => {
+	const disc = [23, 235, 115, 232, 168, 96, 1, 231]; //copied from Anchor IDL
+	const argData = [...numToBytes(amount)];
+	//const argData = [unique, tokenProg];
 
+	const blockhash = svm.latestBlockhash();
+	const ix = new TransactionInstruction({
+		keys: [
+			{ pubkey: lenderPda, isSigner: false, isWritable: false },
+			{ pubkey: lenderAta, isSigner: false, isWritable: true },
+			{ pubkey: userAta, isSigner: false, isWritable: true },
+			{ pubkey: mint, isSigner: false, isWritable: false },
+			{ pubkey: userSigner.publicKey, isSigner: true, isWritable: true },
+			{ pubkey: config, isSigner: false, isWritable: true },
+			{
+				pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
+				isSigner: false,
+				isWritable: false,
+			},
+			{ pubkey: tokenProgram, isSigner: false, isWritable: false },
+			{ pubkey: SYSTEM_PROGRAM, isSigner: false, isWritable: false },
+		],
+		programId: futureOptionAddr,
+		data: Buffer.from([...disc, ...argData]),
+	});
+	sendTxns(svm, blockhash, [ix], [userSigner]);
+};
 //---------------==
 export const setPriceFeedPda = (pricefeed: PriceFeed) => {
 	//const file = Bun.file(path);

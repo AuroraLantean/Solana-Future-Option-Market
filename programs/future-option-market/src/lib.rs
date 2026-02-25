@@ -1,8 +1,9 @@
 #![allow(unexpected_cfgs)]
+use crate::events::WithdrawTokenEvent;
 use anchor_lang::prelude::*;
 use anchor_lang::{
   solana_program::sysvar::instructions::{
-    load_instruction_at_checked, ID as INSTRUCTIONS_SYSVAR_ID,
+    self, load_current_index_checked, load_instruction_at_checked,
   },
   Discriminator,
 };
@@ -49,9 +50,7 @@ fn get_premium(opt_ctrt_amount: u64, ctrt_price: u64) -> Result<u64> {
 
 #[program]
 pub mod future_option_market {
-  use anchor_lang::prelude::sysvar::instructions::load_current_index_checked;
-
-  use crate::events::WithdrawTokenEvent;
+  use anchor_spl::associated_token::get_associated_token_address;
 
   use super::*;
 
@@ -300,10 +299,10 @@ pub mod future_option_market {
   //for borrowers to call last
   pub fn repay(ctx: Context<Flashloan>) -> Result<()> {
     // Extract loan amount from the borrow instruction's data
-    let ixs = ctx.accounts.instructions.to_account_info();
+    let sysvar_ixs = ctx.accounts.sysvar_instructions.to_account_info();
 
     //Instruction introspection: examine past instructions!
-    let borrowed_amt = if let Ok(borrow_ix) = load_instruction_at_checked(0, &ixs) {
+    let borrowed_amt = if let Ok(borrow_ix) = load_instruction_at_checked(0, &sysvar_ixs) {
       // Check the amount borrowed:
       let mut borrow_fn_data: [u8; 8] = [0u8; 8];
       borrow_fn_data.copy_from_slice(&borrow_ix.data[8..16]);
@@ -325,6 +324,13 @@ pub mod future_option_market {
     let repay_amt = borrowed_amt
       .checked_add(fee)
       .ok_or_else(|| ErrCode::MathOverflow)?;
+
+    /*Flashloan{
+    lender_pda, lender_ata,
+    user_ata, mint, user(signer),
+    config, sysvar_instructions,
+    token_program, system_program }*/
+    //let maker_ata = get_associated_token_address(&ctx.accounts.maker.key(), &escrow.mint_b);
 
     // Transfer the funds from the protocol to the borrower
     let cpi_accounts = TransferChecked {
@@ -384,23 +390,23 @@ pub mod future_option_market {
     require!(token_amount > 0, ErrCode::InvalidAmount);
 
     //Instruction introspection: to examine future instructions!
-    let ixs = ctx.accounts.instructions.to_account_info();
+    let sysvar_ixs = ctx.accounts.sysvar_instructions.to_account_info();
 
     // Check if this is the first instruction in the transaction.
-    let current_index = load_current_index_checked(&ctx.accounts.instructions)?;
+    let current_index = load_current_index_checked(&ctx.accounts.sysvar_instructions)?;
     require_eq!(current_index, 0, ErrCode::InvalidIx); // the borrow instruction should be the first instruction at index 0, to avoid reentrancy guards!
 
     // Find how many instruction we have in this transaction
-    let instruction_sysvar = ixs.try_borrow_data()?;
-    let ix_len_data: [u8; 2] = instruction_sysvar[0..2]
+    let sysvar_ixs_data = sysvar_ixs.try_borrow_data()?;
+    let ix_len_data: [u8; 2] = sysvar_ixs_data[0..2]
       .try_into()
       .map_err(|_| ErrCode::InvalidIxLen)?;
 
-    let len = u16::from_le_bytes(ix_len_data);
-    drop(instruction_sysvar); //drop borrowing ixs so load_instruction_at_checked() can borrow ixs again!
+    let ixs_len = u16::from_le_bytes(ix_len_data);
+    drop(sysvar_ixs_data); //drop borrowing sysvar_ixs so load_instruction_at_checked() can borrow sysvar_ixs again!
 
-    //Check the LAST instruction(ix), repay_ix
-    if let Ok(repay_ix) = load_instruction_at_checked(len as usize - 1, &ixs) {
+    //Check the LAST instruction(ix) is repay_ix
+    if let Ok(repay_ix) = load_instruction_at_checked(ixs_len as usize - 1, &sysvar_ixs) {
       //Check the repay_ix calls this program_id
       require_keys_eq!(repay_ix.program_id, ID, ErrCode::InvalidProgram);
 
@@ -426,6 +432,11 @@ pub mod future_option_market {
         ctx.accounts.user_ata.key(),
         ErrCode::InvalidBorrowerAta
       );
+      /*Flashloan{
+      lender_pda, lender_ata,
+      user_ata, mint, user(signer),
+      config, sysvar_instructions,
+      token_program, system_program }*/
 
       //Check Lender ATA at index 1
       require_keys_eq!(
@@ -437,6 +448,7 @@ pub mod future_option_market {
         ctx.accounts.lender_ata.key(),
         ErrCode::InvalidLenderAta
       );
+      //let user_ata = get_associated_token_address(&ctx.accounts.user.key(), &escrow.mint_b);
     } else {
       return Err(ErrCode::MissingRepayIx.into());
     }
@@ -490,10 +502,11 @@ pub struct Flashloan<'info> {
   #[account(seeds = [CONFIG], bump)]
   pub config: Account<'info, Config>,
 
-  /// CHECK: verify we're accessing the correct system account that contains transaction instruction data.
-  #[account(address = INSTRUCTIONS_SYSVAR_ID)]
-  instructions: UncheckedAccount<'info>,
-
+  /// CHECK: verify we're accessing the correct system account that contains instruction data.
+  #[account(address = instructions::ID)]
+  sysvar_instructions: UncheckedAccount<'info>,
+  //pub sysvar_instructions: AccountInfo<'info>,
+  //in web3.js: SYSVAR_INSTRUCTIONS_PUBKEY
   pub token_program: Interface<'info, TokenInterface>,
   //pub associated_token_program: Program<'info, AssociatedToken>,
   pub system_program: Program<'info, System>,

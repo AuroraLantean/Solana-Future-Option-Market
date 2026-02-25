@@ -7,6 +7,7 @@ import {
 	Transaction,
 } from "@solana/web3.js";
 import {
+	flashloan,
 	initConfig,
 	initSimpleAcct,
 	initSolBalc,
@@ -32,6 +33,7 @@ let signer: PublicKey;
 let pricefeed: PriceFeed;
 let newU64: bigint;
 
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import type { FutureOptionMarket } from "../target/types/future_option_market.ts";
 import {
 	solanaKitDecodeConfigDev,
@@ -129,4 +131,27 @@ test("SimpleAccount", async () => {
 	const decoded = solanaKitDecodeSimpleAcctDev(rawAccountData);
 	expect(decoded.writeAuthority).toEqual(signerKp.publicKey);
 	expect(decoded.price).toEqual(price);
+});
+test("Flashloan", async () => {
+	ll("\n------== Flashloan");
+	signerKp = user1Kp;
+	signer = signerKp.publicKey;
+	ll("signerKp:", signer.toBase58());
+	const lenderPda = user1;
+	const lenderAta = user1;
+	const userAta = user1;
+	const mint = usdcMint;
+	const tokenProgram = TOKEN_PROGRAM_ID;
+	const amount = 73200n;
+
+	flashloan(
+		signerKp,
+		lenderPda,
+		lenderAta,
+		userAta,
+		mint,
+		configPbk,
+		tokenProgram,
+		amount,
+	);
 });
