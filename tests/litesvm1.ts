@@ -7,11 +7,14 @@ import {
 	Transaction,
 } from "@solana/web3.js";
 import {
+	acctExists,
 	flashloan,
+	getAta,
 	initConfig,
 	initSimpleAcct,
 	initSolBalc,
 	pythOracle,
+	setMint,
 	setPriceFeedPda,
 	svm,
 } from "./litesvm-utils.ts";
@@ -23,6 +26,7 @@ import {
 	pythPricefeedBTCUSD,
 	pythPricefeedETHUSD,
 	pythPricefeedSOLUSD,
+	usdcMint,
 	user1,
 	user1Kp,
 } from "./web3jsSetup.ts";
@@ -30,7 +34,12 @@ import {
 //clear; jj tts 1
 let signerKp: Keypair;
 let signer: PublicKey;
+let mint: PublicKey;
+let userAta: PublicKey;
+let tokenProgram: PublicKey;
 let pricefeed: PriceFeed;
+let amount: bigint;
+let price: bigint;
 let newU64: bigint;
 
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
@@ -58,12 +67,12 @@ test("one transfer", () => {
 	const payer = hackerKp;
 	const receiver = user1;
 	const blockhash = svm.latestBlockhash();
-	const amt = 1_000_000n;
+	amount = 1_000_000n;
 	const ixs = [
 		SystemProgram.transfer({
 			fromPubkey: payer.publicKey,
 			toPubkey: receiver,
-			lamports: amt,
+			lamports: amount,
 		}),
 	];
 	const tx = new Transaction();
@@ -73,7 +82,7 @@ test("one transfer", () => {
 	svm.sendTransaction(tx);
 
 	const balanceAfter = svm.getBalance(receiver);
-	expect(balanceAfter).toBe(amt + initSolBalc);
+	expect(balanceAfter).toBe(amount + initSolBalc);
 });
 
 test("PythOracle", () => {
@@ -119,7 +128,7 @@ test("SimpleAccount", async () => {
 	ll("\n------== SimpleAccount");
 	ll("simpleAcctPbk:", simpleAcctPbk.toBase58());
 	signerKp = adminKp;
-	const price = 73200n;
+	price = 73200n;
 	initSimpleAcct(signerKp, simpleAcctPbk, price);
 
 	const pdaRaw = svm.getAccount(simpleAcctPbk);
@@ -132,17 +141,24 @@ test("SimpleAccount", async () => {
 	expect(decoded.writeAuthority).toEqual(signerKp.publicKey);
 	expect(decoded.price).toEqual(price);
 });
+
+test("Set Mints", () => {
+	ll("\n------== Set Mints");
+	setMint(usdcMint);
+	acctExists(usdcMint);
+});
 test("Flashloan", async () => {
 	ll("\n------== Flashloan");
 	signerKp = user1Kp;
 	signer = signerKp.publicKey;
+	mint = usdcMint;
+	const lenderPda = user1; //TODO
+	const lenderAta = user1; //TODO
 	ll("signerKp:", signer.toBase58());
-	const lenderPda = user1;
-	const lenderAta = user1;
-	const userAta = user1;
-	const mint = usdcMint;
-	const tokenProgram = TOKEN_PROGRAM_ID;
-	const amount = 73200n;
+
+	userAta = getAta(mint, signer);
+	tokenProgram = TOKEN_PROGRAM_ID;
+	amount = 73200n;
 
 	flashloan(
 		signerKp,

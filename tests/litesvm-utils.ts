@@ -1,5 +1,12 @@
 import { expect } from "bun:test";
 import {
+	ASSOCIATED_TOKEN_PROGRAM_ID,
+	getAssociatedTokenAddressSync,
+	MINT_SIZE,
+	MintLayout,
+	TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
+import {
 	type Keypair,
 	LAMPORTS_PER_SOL,
 	PublicKey,
@@ -141,7 +148,54 @@ export const flashloan = (
 	});
 	sendTxns(svm, blockhash, [ix], [userSigner]);
 };
+
 //---------------==
+//When you want to make Mint without the Mint Keypair. E.g. UsdtMintKp;
+//https://solana.com/docs/tokens/basics/create-mint
+export const setMint = (
+	mint: PublicKey,
+	decimals = 6,
+	supply = 9_000_000_000_000n,
+	mintAuthority = owner,
+	freezeAuthority = owner,
+	programId = TOKEN_PROGRAM_ID,
+) => {
+	const rawMintAcctData = Buffer.alloc(MINT_SIZE);
+	MintLayout.encode(
+		{
+			mintAuthorityOption: 1, //0,
+			mintAuthority: mintAuthority, // PublicKey.default,
+			supply: supply, // 0n
+			decimals: decimals, //0
+			isInitialized: true, //false,
+			freezeAuthorityOption: 1, //0,
+			freezeAuthority: freezeAuthority, // PublicKey.default,
+		},
+		rawMintAcctData,
+	);
+	svm.setAccount(mint, {
+		lamports: 1_000_000_000,
+		data: rawMintAcctData,
+		owner: programId,
+		executable: false,
+	});
+};
+export const getAta = (
+	mint: PublicKey,
+	owner: PublicKey,
+	allowOwnerOffCurve = true,
+	programId = TOKEN_PROGRAM_ID,
+	associatedTokenProgramId = ASSOCIATED_TOKEN_PROGRAM_ID,
+) => {
+	const ata = getAssociatedTokenAddressSync(
+		mint,
+		owner,
+		allowOwnerOffCurve,
+		programId,
+		associatedTokenProgramId,
+	);
+	return ata;
+};
 export const setPriceFeedPda = (pricefeed: PriceFeed) => {
 	//const file = Bun.file(path);
 	// await file.json();
